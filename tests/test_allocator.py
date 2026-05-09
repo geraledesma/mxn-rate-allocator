@@ -46,6 +46,22 @@ class TestAllocate:
         assert nu_alloc == 25_000
         assert mp_alloc == 23_000
 
+    def test_prefers_single_institution_when_rates_identical(self):
+        institutions = [
+            Institution(
+                name=f"S{i}",
+                tiers=(Tier(limit=float("inf"), rate=0.10),),
+            )
+            for i in range(3)
+        ]
+        result = allocate(total=40_000, institutions=institutions)
+        nonempty = sum(
+            1
+            for inst in institutions
+            if sum(result.allocations[inst.name]) > 1e-6
+        )
+        assert nonempty == 1
+
     def test_fills_tiers_sequentially(self, sample_institutions):
         result = allocate(total=50_000, institutions=sample_institutions)
         nu_alloc = result.allocations["Nu"]
@@ -53,7 +69,7 @@ class TestAllocate:
         assert nu_alloc[0] == 25_000  # Nu first tier full
         mp_first = mp_alloc[0]
         assert mp_first == 23_000  # MP first tier full (higher rate)
-        assert nu_alloc[1] == 2_000  # Nu second tier gets remaining
+        assert nu_alloc[1] == pytest.approx(2_000, abs=0.02)  # MILP float noise
 
     def test_zero_allocation(self, sample_institutions):
         result = allocate(total=0, institutions=sample_institutions)

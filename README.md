@@ -12,6 +12,7 @@ Given:
 
 Find:
 - The allocation that maximizes expected return while respecting all constraints
+- Among allocations tied on that objective, one that uses the fewest institutions (fewer accounts to open), via a very small extra cost per open institution in the same MILP
 
 ## Quick Start
 

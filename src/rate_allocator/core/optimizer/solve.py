@@ -1,5 +1,9 @@
 """LP-based allocation orchestration built from small helper functions."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 import numpy as np
 from scipy.optimize import Bounds, LinearConstraint, milp
 
@@ -60,6 +64,22 @@ class ObjectiveParts:
     def __init__(self, c: np.ndarray, bounds: list[tuple[float, float]]) -> None:
         self.c = c
         self.bounds = bounds
+
+
+@dataclass(frozen=True)
+class _MilpCore:
+    """Phase-1 MILP: minimize c @ x over tier cumulatives and tier-unlock binaries."""
+
+    n_x: int
+    n_vars: int
+    y_map: dict[tuple[str, int], int]
+    c: np.ndarray
+    lb: np.ndarray
+    ub: np.ndarray
+    integrality: np.ndarray
+    A: np.ndarray
+    constraint_lower: np.ndarray
+    constraint_upper: np.ndarray
 
 
 def _validate_allocate_inputs(
@@ -265,13 +285,13 @@ def _append_protection_cap_constraints(
         rhs.append(cap)
 
 
-def _solve_milp(
+def _build_milp_core(
     institutions: list[Institution],
     total: float,
     var_map: dict[tuple[str, int], int],
     objective: ObjectiveParts,
     regulatory_rules: RegulatoryRules,
-) -> np.ndarray:
+) -> _MilpCore:
     n_x = len(objective.c)
     y_map = _build_tier_unlock_var_map(institutions, n_x)
     n_vars = n_x + len(y_map)
@@ -313,21 +333,141 @@ def _solve_milp(
         uppers.extend(b_ub.tolist())
 
     A = np.vstack(matrices) if matrices else np.zeros((0, n_vars))
-    constraints = LinearConstraint(A, np.array(lowers), np.array(uppers))
-
     integrality = np.zeros(n_vars, dtype=int)
     for y_idx in y_map.values():
         integrality[y_idx] = 1
 
+    return _MilpCore(
+        n_x=n_x,
+        n_vars=n_vars,
+        y_map=y_map,
+        c=c,
+        lb=lb,
+        ub=ub,
+        integrality=integrality,
+        A=A,
+        constraint_lower=np.array(lowers, dtype=float),
+        constraint_upper=np.array(uppers, dtype=float),
+    )
+
+
+def _run_milp_dense(
+    c: np.ndarray,
+    lb: np.ndarray,
+    ub: np.ndarray,
+    integrality: np.ndarray,
+    A: np.ndarray,
+    constraint_lower: np.ndarray,
+    constraint_upper: np.ndarray,
+) -> np.ndarray:
     result = milp(
         c=c,
         integrality=integrality,
         bounds=Bounds(lb, ub),
-        constraints=constraints,
+        constraints=LinearConstraint(A, constraint_lower, constraint_upper),
     )
     if not result.success or result.x is None:
         raise ValueError(f"Optimization failed (MILP): {result.message}")
-    return np.array(result.x[:n_x], dtype=float)
+    return np.array(result.x, dtype=float)
+
+
+def _primary_objective_value(c_primary: np.ndarray, sol: np.ndarray) -> float:
+    return float(np.dot(c_primary, sol[: c_primary.shape[0]]))
+
+
+def _institution_indicator_penalty(c_primary: np.ndarray, n_institutions: int) -> float:
+    """Tiny weight on sum(z) so marginal-return objective dominates; breaks ties toward fewer accounts."""
+    nz = np.abs(c_primary[np.abs(c_primary) > 1e-18])
+    floor = float(np.min(nz)) if nz.size else 1e-9
+    cap = floor / max(500.0, 50.0 * float(n_institutions))
+    return min(cap, 1e-11)
+
+
+def _institution_open_rows(
+    institutions: list[Institution],
+    total: float,
+    var_map: dict[tuple[str, int], int],
+    n_core_vars: int,
+    n_inst: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    n_expanded = n_core_vars + n_inst
+    rows: list[np.ndarray] = []
+    z_col = n_core_vars
+    for inst in institutions:
+        row = np.zeros(n_expanded)
+        row[var_map[(inst.name, len(inst.tiers) - 1)]] = 1.0
+        row[z_col] = -float(total)
+        rows.append(row)
+        z_col += 1
+    if not rows:
+        return np.zeros((0, n_expanded)), np.array([]), np.array([])
+    mat = np.vstack(rows)
+    lower = np.full(len(rows), -np.inf)
+    upper = np.zeros(len(rows))
+    return mat, lower, upper
+
+
+def _stack_extended_constraints(
+    core: _MilpCore,
+    extra_A: np.ndarray,
+    extra_lower: np.ndarray,
+    extra_upper: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    n_inst_cols = extra_A.shape[1] - core.A.shape[1]
+    base_wide = np.hstack([core.A, np.zeros((core.A.shape[0], n_inst_cols))])
+    if extra_A.size == 0:
+        return base_wide, core.constraint_lower, core.constraint_upper
+    A_full = np.vstack([base_wide, extra_A])
+    lower = np.concatenate([core.constraint_lower, extra_lower])
+    upper = np.concatenate([core.constraint_upper, extra_upper])
+    return A_full, lower, upper
+
+
+def _solve_milp_single_penalty(
+    institutions: list[Institution],
+    total: float,
+    var_map: dict[tuple[str, int], int],
+    objective: ObjectiveParts,
+    regulatory_rules: RegulatoryRules,
+    *,
+    institution_penalty: float,
+) -> np.ndarray:
+    """Single MILP: minimize c @ x + penalty * sum(z) where z indicates an open institution."""
+    core = _build_milp_core(
+        institutions, total, var_map, objective, regulatory_rules
+    )
+    n_inst = len(institutions)
+    open_rows, open_lo, open_hi = _institution_open_rows(
+        institutions, total, var_map, core.n_vars, n_inst
+    )
+    A2, lo2, hi2 = _stack_extended_constraints(core, open_rows, open_lo, open_hi)
+    n2 = core.n_vars + n_inst
+    c2 = np.zeros(n2)
+    c2[: core.n_vars] = core.c
+    c2[core.n_vars :] = float(institution_penalty)
+    lb2 = np.concatenate([core.lb, np.zeros(n_inst)])
+    ub2 = np.concatenate([core.ub, np.ones(n_inst)])
+    int2 = np.concatenate([core.integrality, np.ones(n_inst, dtype=int)])
+    sol = _run_milp_dense(c2, lb2, ub2, int2, A2, lo2, hi2)
+    return sol[: core.n_x]
+
+
+def _solve_milp(
+    institutions: list[Institution],
+    total: float,
+    var_map: dict[tuple[str, int], int],
+    objective: ObjectiveParts,
+    regulatory_rules: RegulatoryRules,
+) -> np.ndarray:
+    delta = _institution_indicator_penalty(objective.c, len(institutions))
+    return _solve_milp_single_penalty(
+        institutions,
+        total,
+        var_map,
+        objective,
+        regulatory_rules,
+        institution_penalty=delta,
+    )
 
 
 def _build_tier_unlock_var_map(
