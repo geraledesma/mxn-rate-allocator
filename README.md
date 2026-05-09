@@ -56,6 +56,17 @@ pip install -e ".[streamlit]"
 streamlit run streamlit_app.py
 ```
 
+## Interactive site (HTML + FastAPI)
+
+Spanish single-page UI under [`web/static/index.html`](web/static/index.html): monto, horizonte, toggles por banco/SOFIPO, sección **Noticias** (`data/noticias_tasas.yaml`), y el servidor ejecuta `allocate` + `build_interactive_report_html(locale="es")` igual que Streamlit.
+
+```bash
+pip install -e ".[web]"
+uvicorn web.server:app --reload --host 127.0.0.1 --port 8000
+```
+
+Abre `http://127.0.0.1:8000/`.
+
 **Source repository:** [github.com/geraledesma/rate-allocator](https://github.com/geraledesma/rate-allocator)
 
 ### Publish on Streamlit Community Cloud (one-time)

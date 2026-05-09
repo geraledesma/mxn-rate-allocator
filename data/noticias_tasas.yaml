@@ -1,0 +1,27 @@
+# Bitácora curada de cambios en tasas (ejemplo / orientación).
+# Actualiza este archivo cuando cambien promociones o condiciones en los YAML de instituciones.
+noticias:
+  - fecha: "2026-05-03"
+    institucion: OpenBank
+    titulo: Vigencia de tramos vista (demo)
+    resumen: >
+      Recordatorio: el ejemplo en data/sample1.yaml modela tramos hasta $40k, hasta $1 M y saldo
+      restante; las tasas nominales del archivo son las que usa la optimización hasta que actualices el YAML.
+    tasa_anterior: null
+    tasa_nueva: null
+  - fecha: "2026-04-18"
+    institucion: Nu
+    titulo: Tope del tramo alto
+    resumen: >
+      Ejemplo editorial: primera porción del saldo hasta $25,000 MXN con tasa destacada según archivo
+      de datos del proyecto (comisiones y condiciones siguen aplicando en la optimización).
+    tasa_anterior: null
+    tasa_nueva: null
+  - fecha: "2026-03-02"
+    institucion: PlataAhorroPlus
+    titulo: Membresía y comisión mensual
+    resumen: >
+      Recordatorio de que el plan con cuota mensual modelada afecta el rendimiento neto en el
+      horizonte elegido; revisa la columna de comisiones del informe.
+    tasa_anterior: null
+    tasa_nueva: null

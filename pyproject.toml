@@ -21,6 +21,11 @@ dev = [
     "pytest-cov>=4.0.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
+    "httpx>=0.26.0",
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "matplotlib>=3.7.0",
+    "pandas>=2.0.0",
 ]
 notebook = [
     "jupyter>=1.0.0",
@@ -31,6 +36,12 @@ notebook = [
 streamlit = [
     "streamlit>=1.28.0",
     "matplotlib>=3.7.0",
+]
+web = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "matplotlib>=3.7.0",
+    "pandas>=2.0.0",
 ]
 
 [tool.setuptools]

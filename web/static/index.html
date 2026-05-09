@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rate Allocator — demo interactivo</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --text: #e8ecf1;
+      --muted: #8b9cae;
+      --accent: #3d9cf0;
+      --border: #2d3a4d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.25rem;
+    }
+    header h1 {
+      font-size: 1.55rem;
+      font-weight: 650;
+      margin: 0 0 0.35rem;
+    }
+    header p.caption {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin: 0 0 1rem;
+      max-width: 65ch;
+    }
+    .grid {
+      display: grid;
+      gap: 1.25rem;
+    }
+    @media (min-width: 860px) {
+      .layout {
+        display: grid;
+        grid-template-columns: 340px minmax(0, 1fr);
+        gap: 1.5rem;
+        align-items: start;
+      }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+    }
+    .card h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    label {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    .row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 0.85rem;
+    }
+    input[type="number"], input[type="range"] {
+      accent-color: var(--accent);
+    }
+    input[type="number"] {
+      width: 7.5rem;
+      padding: 0.4rem 0.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #111820;
+      color: var(--text);
+      font-family: inherit;
+    }
+    input[type="range"] {
+      flex: 1;
+      min-width: 140px;
+    }
+    .group-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin: 0.75rem 0 0.35rem;
+    }
+    .group-title:first-child { margin-top: 0; }
+    .toggle {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.35rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    .toggle:last-child { border-bottom: none; }
+    .toggle input { margin-top: 0.2rem; }
+    .toggle .meta {
+      color: var(--muted);
+      font-size: 0.78rem;
+      display: block;
+    }
+    .msg-info, .msg-err {
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.88rem;
+      margin-bottom: 0.85rem;
+    }
+    .msg-info {
+      background: #152028;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .msg-err {
+      background: #2a1618;
+      border: 1px solid #5c3036;
+      color: #f0c8cc;
+    }
+    #resultado {
+      font-size: 0.92rem;
+    }
+    #resultado pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    #resultado img { max-width: 100%; height: auto; }
+    article.noticia {
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 0;
+    }
+    article.noticia:last-child { border-bottom: none; padding-bottom: 0; }
+    article.noticia h3 {
+      margin: 0 0 0.25rem;
+      font-size: 0.95rem;
+    }
+    article.noticia .meta-line {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-bottom: 0.35rem;
+    }
+    article.noticia p {
+      margin: 0;
+      font-size: 0.86rem;
+      color: #c9d5e3;
+      white-space: pre-wrap;
+    }
+    footer {
+      margin-top: 2rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      max-width: 70ch;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Rate Allocator — demo interactivo</h1>
+      <p class="caption">
+        Elige el monto total en pesos mexicanos y marca o desmarca cada banco o SOFIPO.
+        La optimización (asignación lineal sobre tramos del YAML de ejemplo del proyecto)
+        corre en el servidor al momento. El informe muestra tabla y gráficos en español.
+        Las tasas y comisiones salen únicamente de los datos de ejemplo; solo orientación —
+        confirma con tu institución antes de invertir.
+      </p>
+    </header>
+
+    <div class="layout">
+      <aside class="grid">
+        <div class="card">
+          <h2>Opciones de simulación</h2>
+
+          <label for="montoRange">Total a asignar (MXN)</label>
+          <div class="row">
+            <input type="range" id="montoRange" min="0" max="1200000" step="100" value="100000" />
+            <input type="number" id="montoNum" min="0" max="1200000" step="100" value="100000" />
+          </div>
+
+          <label for="horizonte">Horizonte (años)</label>
+          <div class="row">
+            <input type="range" id="horizonte" min="0.25" max="5" step="0.25" value="1" />
+            <input type="number" id="horizonteNum" min="0.25" max="5" step="0.25" value="1" />
+          </div>
+
+          <h2 style="margin-top:0.5rem">Instituciones a incluir</h2>
+          <p style="font-size:0.8rem;color:var(--muted);margin:0 0 0.5rem">
+            El texto entre paréntesis resume comisiones modeladas en el YAML.
+          </p>
+          <div id="toggles"></div>
+        </div>
+
+        <div class="card">
+          <h2>Noticias sobre tasas</h2>
+          <p style="font-size:0.8rem;color:var(--muted);margin:0 0 0.5rem">
+            Cambios comunicados editorialmente sobre las tasas de referencia del demo
+            (<code>data/noticias_tasas.yaml</code>).
+          </p>
+          <div id="noticiasLista"></div>
+        </div>
+      </aside>
+
+      <main class="card">
+        <h2 style="margin-top:0">Resultado</h2>
+        <div id="status"></div>
+        <div id="resultado"><p style="color:var(--muted)">Cargando informe…</p></div>
+      </main>
+    </div>
+
+    <footer>
+      ISR estimado sobre interés real, retención y seguro de depósitos usan los supuestos
+      regulatorios MX por defecto del paquete. Los productos reales cambian; este sitio no
+      sustituye asesoría fiscal ni garantías IPAB / Prosofipo.
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      var TOTAL_MIN = 0;
+      var TOTAL_MAX = 1200000;
+      var STEP = 100;
+      var DEBOUNCE_MS = 280;
+
+      var montoRange = document.getElementById("montoRange");
+      var montoNum = document.getElementById("montoNum");
+      var horizonte = document.getElementById("horizonte");
+      var horizonteNum = document.getElementById("horizonteNum");
+      var togglesRoot = document.getElementById("toggles");
+      var resultado = document.getElementById("resultado");
+      var statusEl = document.getElementById("status");
+      var noticiasLista = document.getElementById("noticiasLista");
+
+      var debounceTimer = null;
+
+      function clampMonto(x) {
+        x = Math.round(Number(x) / STEP) * STEP;
+        if (x < TOTAL_MIN) x = TOTAL_MIN;
+        if (x > TOTAL_MAX) x = TOTAL_MAX;
+        return x;
+      }
+
+      function syncMontoFromRange() {
+        var v = clampMonto(montoRange.value);
+        montoRange.value = v;
+        montoNum.value = v;
+      }
+
+      function syncMontoFromNum() {
+        var v = clampMonto(montoNum.value);
+        montoNum.value = v;
+        montoRange.value = v;
+      }
+
+      function syncHorizonteFromRange() {
+        var v = parseFloat(horizonte.value);
+        horizonteNum.value = v;
+      }
+
+      function syncHorizonteFromNum() {
+        var v = parseFloat(horizonteNum.value);
+        if (isNaN(v)) v = 1;
+        v = Math.round(v / 0.25) * 0.25;
+        if (v < 0.25) v = 0.25;
+        if (v > 5) v = 5;
+        horizonteNum.value = v;
+        horizonte.value = v;
+      }
+
+      function groupLabel(key) {
+        if (key === "banco") return "Bancos";
+        if (key === "sofipo") return "SOFIPOs";
+        if (key === "none") return "Otros (referencia)";
+        return "Otros";
+      }
+
+      function selectedNames() {
+        var boxes = togglesRoot.querySelectorAll('input[type="checkbox"]');
+        var out = [];
+        boxes.forEach(function (cb) {
+          if (cb.checked) out.push(cb.getAttribute("data-name"));
+        });
+        return out;
+      }
+
+      function setStatus(html, cls) {
+        statusEl.innerHTML = html ? '<div class="' + (cls || "msg-info") + '">' + html + "</div>" : "";
+      }
+
+      function scheduleReport() {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(runReport, DEBOUNCE_MS);
+      }
+
+      function runReport() {
+        var sel = selectedNames();
+        if (sel.length === 0) {
+          resultado.innerHTML = "";
+          setStatus("Selecciona al menos una institución.", "msg-info");
+          return;
+        }
+        var total = parseInt(montoNum.value, 10) || 0;
+        var hy = parseFloat(horizonteNum.value) || 1;
+        setStatus("Calculando optimización…", "msg-info");
+        fetch("/api/report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            total_mxn: total,
+            selected: sel,
+            horizon_years: hy
+          })
+        })
+          .then(function (r) {
+            return r.json().then(function (j) {
+              if (!r.ok) {
+                var d = j.detail;
+                throw new Error(typeof d === "string" ? d : JSON.stringify(d));
+              }
+              return j;
+            });
+          })
+          .then(function (data) {
+            setStatus("", "");
+            resultado.innerHTML = data.html;
+          })
+          .catch(function (err) {
+            setStatus("Error: " + err.message, "msg-err");
+          });
+      }
+
+      function renderInstitutions(list) {
+        togglesRoot.innerHTML = "";
+        var groups = { banco: [], sofipo: [], none: [], otro: [] };
+        list.forEach(function (inst) {
+          var t = inst.institution_type;
+          if (t === "banco") groups.banco.push(inst);
+          else if (t === "sofipo") groups.sofipo.push(inst);
+          else if (t === "none") groups.none.push(inst);
+          else groups.otro.push(inst);
+        });
+        ["banco", "sofipo", "none", "otro"].forEach(function (key) {
+          var slice = groups[key];
+          if (!slice.length) return;
+          var h = document.createElement("div");
+          h.className = "group-title";
+          h.textContent = groupLabel(key);
+          togglesRoot.appendChild(h);
+          slice.forEach(function (inst) {
+            var row = document.createElement("label");
+            row.className = "toggle";
+            var cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.checked = true;
+            cb.setAttribute("data-name", inst.name);
+            cb.addEventListener("change", scheduleReport);
+            var span = document.createElement("span");
+            var strong = document.createElement("strong");
+            strong.textContent = inst.name;
+            span.appendChild(strong);
+            var hint = inst.constraints_label;
+            if (hint && hint !== "sin comisiones modeladas") {
+              var sm = document.createElement("small");
+              sm.className = "meta";
+              sm.textContent = "(" + hint + ")";
+              span.appendChild(sm);
+            }
+            row.appendChild(cb);
+            row.appendChild(span);
+            togglesRoot.appendChild(row);
+          });
+        });
+      }
+
+      function formatFecha(iso) {
+        if (!iso) return "";
+        try {
+          var d = new Date(iso + "T12:00:00");
+          return d.toLocaleDateString("es-MX", {
+            year: "numeric",
+            month: "long",
+            day: "numeric"
+          });
+        } catch (e) {
+          return iso;
+        }
+      }
+
+      function renderNoticias(items) {
+        noticiasLista.innerHTML = "";
+        if (!items || !items.length) {
+          noticiasLista.innerHTML =
+            '<p style="color:var(--muted);font-size:0.86rem">No hay entradas todavía.</p>';
+          return;
+        }
+        items.forEach(function (n) {
+          var art = document.createElement("article");
+          art.className = "noticia";
+          var h = document.createElement("h3");
+          h.textContent = n.titulo || "Sin título";
+          var meta = document.createElement("div");
+          meta.className = "meta-line";
+          var parts = [formatFecha(n.fecha), n.institucion].filter(Boolean);
+          meta.textContent = parts.join(" · ");
+          if (n.tasa_anterior || n.tasa_nueva) {
+            var rateLine = document.createElement("div");
+            rateLine.className = "meta-line";
+            rateLine.textContent =
+              "Tasa referencia: " +
+              (n.tasa_anterior || "—") +
+              " → " +
+              (n.tasa_nueva || "—");
+            art.appendChild(h);
+            art.appendChild(meta);
+            art.appendChild(rateLine);
+          } else {
+            art.appendChild(h);
+            art.appendChild(meta);
+          }
+          var p = document.createElement("p");
+          p.textContent = (n.resumen || "").trim();
+          art.appendChild(p);
+          noticiasLista.appendChild(art);
+        });
+      }
+
+      montoRange.addEventListener("input", function () {
+        syncMontoFromRange();
+        scheduleReport();
+      });
+      montoNum.addEventListener("change", function () {
+        syncMontoFromNum();
+        scheduleReport();
+      });
+      horizonte.addEventListener("input", function () {
+        syncHorizonteFromRange();
+        scheduleReport();
+      });
+      horizonteNum.addEventListener("change", function () {
+        syncHorizonteFromNum();
+        scheduleReport();
+      });
+
+      fetch("/api/institutions")
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (data) {
+          renderInstitutions(data);
+          syncMontoFromRange();
+          syncHorizonteFromRange();
+          runReport();
+        })
+        .catch(function () {
+          setStatus("No se pudo cargar el listado de instituciones.", "msg-err");
+        });
+
+      fetch("/api/noticias")
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (data) {
+          renderNoticias(data.items || []);
+        })
+        .catch(function () {
+          noticiasLista.innerHTML =
+            '<p style="color:#f0c8cc;font-size:0.86rem">No se pudieron cargar las noticias.</p>';
+        });
+    })();
+  </script>
+</body>
+</html>
