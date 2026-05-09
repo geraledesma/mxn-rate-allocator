@@ -24,7 +24,3 @@ def test_vigencia_naive_reads_wall_components(cal_mod):
     d = datetime(2026, 5, 1, 23, 0, 0)  # naive
     assert cal_mod._vigencia_effective_calendar_date(d) == date(2026, 5, 1)
 
-
-def test_registro_uses_mexico_calendar_day(cal_mod):
-    utc = datetime(2026, 5, 8, 12, 0, tzinfo=timezone.utc)
-    assert cal_mod._registro_applied_calendar_date_mx(utc).year == 2026

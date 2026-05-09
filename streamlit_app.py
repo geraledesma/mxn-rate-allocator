@@ -71,9 +71,8 @@ STRINGS = {
     "reload": "Recargar datos",
     "noticias": "Noticias",
     "noticias_help": (
-        "Cambios de tasa desde el historial **SCD2**. **Vigencia** = día en que vale la nueva tasa "
-        "(``tier_versions.effective_from``); **Registro aplicado** = cuándo se grabó el lote "
-        "(``change_batches.applied_at``), diferente cuando el negocio adelanta o atrasa el registro."
+        "Cambios de tasa desde el historial **SCD2**. **«Efectivo el …»** = inicio de vigencia "
+        "de la nueva tasa (**``tier_versions.effective_from``**). Ordenadas por esa fecha descendente."
     ),
     "noticias_from_db_footer": (
         "Historial SCD2 de la BD conectada (`RATE_ALLOCATOR_DB_URL` o SQLite por defecto). "
@@ -156,13 +155,6 @@ def _vigencia_effective_calendar_date(dt: datetime) -> date:
     return dt.astimezone(timezone.utc).date()
 
 
-def _registro_applied_calendar_date_mx(dt: datetime) -> date:
-    """Día civil observable en México para cuándo se **registró** el cambio."""
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(MX_ZONE).date()
-
-
 def _today_mx_label() -> str:
     d = datetime.now(MX_ZONE).date()
     weekdays = (
@@ -206,15 +198,12 @@ def _paragraph_noticia_es(
     old_rate: float,
     new_rate: float,
     effective_from_dt: datetime,
-    applied_at_dt: datetime,
 ) -> str:
     old_pct = old_rate * 100.0
     new_pct = new_rate * 100.0
     vig_txt = _date_to_calendar_es(_vigencia_effective_calendar_date(effective_from_dt))
-    reg_txt = _date_to_calendar_es(_registro_applied_calendar_date_mx(applied_at_dt))
     return (
-        f"{institution} (Tramo {tier_label}): efectivo el {vig_txt} (inicio de vigencia "
-        f"de la nueva tasa); registro aplicado el {reg_txt} (momento del lote); "
+        f"{institution} (Tramo {tier_label}): efectivo el {vig_txt}, "
         f"la tasa nominal se ajustó del {old_pct:.2f}% al {new_pct:.2f}%."
     )
 
@@ -260,7 +249,6 @@ def _noticias_paragraphs_db(events: list) -> list[str]:
             old_rate=e.old_rate,
             new_rate=e.new_rate,
             effective_from_dt=e.effective_from,
-            applied_at_dt=e.applied_at,
         )
         for e in events
     ]
@@ -289,7 +277,6 @@ def _noticias_paragraphs_yaml(entries: list[YamlNoticiaEntry]) -> list[str]:
             old_rate=e.old_rate,
             new_rate=e.new_rate,
             effective_from_dt=e.effective_from,
-            applied_at_dt=e.applied_at,
         )
         for e in sorted_entries
     ]
