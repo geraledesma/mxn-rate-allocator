@@ -49,7 +49,17 @@ pip install -e .
 
 ## Interactive demo (Streamlit)
 
-Aligned with [`notebooks/demo_ipywidgets_es.ipynb`](notebooks/demo_ipywidgets_es.ipynb): **Spanish** sidebar and report (`locale="es"`), bundled sample institutions and rates, multiselect, total (**slider** plus **number input**, steps of 100), and **horizon** slider. The main area adds a **panorama visual** (métricas `st.metric`, barras horizontales Altair por institución, tabla `st.dataframe` con desglose) before the HTML detallado con gráficos matplotlib. The English notebook variant is [`notebooks/demo_ipywidgets_en.ipynb`](notebooks/demo_ipywidgets_en.ipynb).
+Aligned with [`notebooks/demo_ipywidgets_es.ipynb`](notebooks/demo_ipywidgets_es.ipynb): **Spanish** sidebar and report (`locale="es"`), multiselect, total (**slider** plus **number input**, steps of 100), and **horizon** slider. The demo reads **rates from SQLite (`data/rates.db`)**, not YAML at runtime; the checked-in DB snapshot matches [`data/sample1.yaml`](data/sample1.yaml).
+
+The main area adds a **panorama visual** (`st.metric`, barras Altair por institución, `st.dataframe` con desglose) before the HTML detallado con gráficos matplotlib. The English notebook variant is [`notebooks/demo_ipywidgets_en.ipynb`](notebooks/demo_ipywidgets_en.ipynb).
+
+Regenerate the DB after editing YAML (local path defaults shown):
+
+```bash
+python3 scripts/seed_rates_sqlite.py --yaml data/sample1.yaml --db data/rates.db
+```
+
+Override the DB path in deployment with env **`RATE_ALLOCATOR_SQLITE`** or a Streamlit secret of the same name.
 
 ```bash
 pip install -e ".[streamlit]"

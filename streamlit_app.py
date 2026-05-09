@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -17,10 +19,9 @@ from rate_allocator import (
     build_interactive_report_html,
     summarize_allocation,
 )
-from rate_allocator.adapters.yaml_loader import load_institutions_with_overrides
+from rate_allocator.adapters.sqlite_loader import load_institutions_from_sqlite
 
 REPO_ROOT = Path(__file__).resolve().parent
-DATA_FILE = REPO_ROOT / "data" / "sample1.yaml"
 
 TOTAL_MIN = 0
 TOTAL_MAX = 1_200_000
@@ -31,7 +32,10 @@ STRINGS = {
     "title": "Rate Allocator: demo interactivo",
     "caption": (
         "Elige instituciones y el total en MXN (deslizador o campo numérico, pasos de 100). "
-        "Las tasas y comisiones salen de los datos de ejemplo incluidos en el proyecto. "
+        "Las tasas y comisiones se cargan desde la base SQLite incluida en el proyecto "
+        "(por defecto `data/rates.db`, no YAML). Actualiza esa BD con el script "
+        "`scripts/seed_rates_sqlite.py` o cambia la ruta con la variable "
+        "`RATE_ALLOCATOR_SQLITE` / secret homónimo. "
         "El horizonte en años ajusta el compuesto al plazo y el modelado de comisiones en el informe."
     ),
     "institutions": "Instituciones a incluir",
@@ -56,7 +60,29 @@ STRINGS = {
     "detail_section": "Informe detallado (tabla y gráficos)",
     "detail_caption": "El mismo formato que usa el notebook: tramos, comisiones, torta de principal e intereses por tramo.",
     "no_allocation": "Con estos parámetros no hay capital asignado; sube el monto o revisa instituciones.",
+    "db_missing": "No se encontró la base SQLite de tasas en `{path}`.",
+    "db_seed_hint": (
+        "Genera **data/rates.db** con:\n```\npython3 scripts/seed_rates_sqlite.py\n```"
+        "\nOpcionalmente apunta otro archivo con env `RATE_ALLOCATOR_SQLITE` o el secret Streamlit igual."
+    ),
 }
+
+
+def resolve_streamlit_sqlite_path() -> Path:
+    """Prefer env, then Streamlit secret, then bundled ``data/rates.db``."""
+
+    raw = os.environ.get("RATE_ALLOCATOR_SQLITE")
+    if raw:
+        return Path(raw).expanduser().resolve()
+    try:
+        sec = getattr(st, "secrets", None)
+        if sec is not None:
+            val = sec.get("RATE_ALLOCATOR_SQLITE") if hasattr(sec, "get") else None
+            if val:
+                return Path(str(val)).expanduser().resolve()
+    except Exception:
+        pass
+    return (REPO_ROOT / "data" / "rates.db").resolve()
 
 
 def _brief_constraints_label(inst) -> str:
@@ -68,8 +94,10 @@ def _brief_constraints_label(inst) -> str:
 
 
 @st.cache_data
-def _load_base_institutions():
-    return load_institutions_with_overrides(str(DATA_FILE), {})
+def _load_base_institutions(db_path_str: str):
+    """Institutions keyed by SQLite path string so caches invalidate per DB file."""
+
+    return load_institutions_from_sqlite(Path(db_path_str).expanduser().resolve())
 
 
 def _sync_total_from_slider() -> None:
@@ -121,16 +149,24 @@ def main() -> None:
 
     t = STRINGS
 
+    sqlite_path = resolve_streamlit_sqlite_path()
+    if not sqlite_path.is_file():
+        st.error(t["db_missing"].format(path=sqlite_path))
+        st.markdown(t["db_seed_hint"])
+        st.stop()
+
     st.title(t["title"])
     st.caption(t["caption"])
 
-    base_institutions = _load_base_institutions()
+    base_institutions = _load_base_institutions(str(sqlite_path))
     all_names = [inst.name for inst in base_institutions]
     hints = {inst.name: _brief_constraints_label(inst) for inst in base_institutions}
 
     total_value = max(TOTAL_MIN, min(TOTAL_MAX, int(st.session_state.total_mxn)))
 
     with st.sidebar:
+        st.caption(f"BD SQLite: `{sqlite_path.name}`")
+
         def _institution_option_label(n: str) -> str:
             hint = hints[n]
             return n if hint == t["no_fees"] else f"{n} ({hint})"
@@ -173,8 +209,7 @@ def main() -> None:
         st.info(t["empty"])
         return
 
-    all_institutions = load_institutions_with_overrides(str(DATA_FILE), {})
-    institutions = [inst for inst in all_institutions if inst.name in selected]
+    institutions = [inst for inst in base_institutions if inst.name in selected]
 
     result = allocate(
         total=total,
