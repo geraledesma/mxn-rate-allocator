@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -38,16 +38,35 @@ def _current_institution_names(session: Session) -> dict[str, str]:
     return {bk: name for bk, name in rows}
 
 
+def _event_sort_key(e: TierRateChangeEvent) -> tuple:
+    """Stable ascending key so ``sort()`` yields vigencia nueva primero, luego bk/tramo."""
+    ef = e.effective_from
+    if ef.tzinfo is None:
+        ef = ef.replace(tzinfo=timezone.utc)
+    else:
+        ef = ef.astimezone(timezone.utc)
+    ap = e.applied_at
+    if ap.tzinfo is None:
+        ap = ap.replace(tzinfo=timezone.utc)
+    else:
+        ap = ap.astimezone(timezone.utc)
+    return (-ef.timestamp(), -ap.timestamp(), e.institution_key, e.tier_index)
+
+
 def load_recent_tier_rate_changes(
     session: Session,
     *,
-    limit: int = 50,
+    limit: int | None = None,
 ) -> list[TierRateChangeEvent]:
-    """Return the most recent tier nominal-rate changes (newest first).
+    """Return tier nominal-rate changes, newest vigencia **globally** first.
 
-    Walks tier version history in effective order and emits an event whenever
-    the stored ``rate`` differs from the immediately prior version for the same
+    Walks tier version history and emits an event whenever the stored ``rate``
+    differs from the immediately prior version for the same
     ``(institution_business_key, tier_index)``.
+
+    Args:
+        session: Active ORM session.
+        limit: If set, truncate after sorting (newest retained). ``None`` = all rows.
     """
     rows = list(
         session.execute(
@@ -84,7 +103,7 @@ def load_recent_tier_rate_changes(
         return batch_cache[cid]
 
     events: list[TierRateChangeEvent] = []
-    for prev, row in reversed(events_raw):
+    for prev, row in events_raw:
         batch = _batch(row.change_id)
         applied = batch.applied_at if batch is not None else row.effective_from
         bk = row.institution_business_key
@@ -101,8 +120,10 @@ def load_recent_tier_rate_changes(
                 note=batch.note if batch else None,
             )
         )
-        if len(events) >= limit:
-            break
+
+    events.sort(key=_event_sort_key)
+    if limit is not None:
+        events = events[:limit]
 
     return events
 

@@ -402,6 +402,15 @@ class TestTierRateHistory:
             events = load_recent_tier_rate_changes(session, limit=50)
 
         assert events
+
+        def _utc(d: datetime) -> datetime:
+            if d.tzinfo is None:
+                return d.replace(tzinfo=timezone.utc)
+            return d.astimezone(timezone.utc)
+
+        vigencias = [_utc(e.effective_from) for e in events]
+        assert vigencias == sorted(vigencias, reverse=True)
+
         nu_ev = next(
             e
             for e in events

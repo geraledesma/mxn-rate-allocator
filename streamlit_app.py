@@ -32,6 +32,8 @@ DEFAULT_DB_FILE = REPO_ROOT / "data" / "rates.db"
 NOTICIAS_YAML_FILE = REPO_ROOT / "data" / "noticias.yaml"
 MX_ZONE = ZoneInfo("America/Mexico_City")
 DB_URL_ENV = "RATE_ALLOCATOR_DB_URL"
+NOTICIAS_LIMIT_ENV = "RATE_ALLOCATOR_NOTICIAS_LIMIT"
+NOTICIAS_DEFAULT_LIMIT = 2_000
 
 
 def _resolve_database_url() -> str:
@@ -69,9 +71,12 @@ STRINGS = {
     "reload": "Recargar datos",
     "noticias": "Noticias",
     "noticias_help": (
-        "Cambios recientes en tasas nominales por tramo (histórico SCD2). "
-        "La columna «Vigente desde» es la fecha de vigencia del nuevo tramo; "
-        "«Fecha aplicada» es cuándo se registró el lote en el sistema."
+        "Cambios de tasa desde el historial **SCD2** de la base de datos "
+        "(listado cronológico: **fecha de vigencia** más reciente primero)."
+    ),
+    "noticias_from_db_footer": (
+        "Historial SCD2 de la BD conectada (`RATE_ALLOCATOR_DB_URL` o SQLite por defecto). "
+        f"Opcional: límite con `{NOTICIAS_LIMIT_ENV}=all|N`."
     ),
     "noticias_empty": "No hay cambios de tasa registrados en la BD aún (o la BD está vacía).",
     "noticias_db_unavailable": (
@@ -83,8 +88,7 @@ STRINGS = {
         "no tiene entradas o no existe. Añada dependencias o el archivo YAML de noticias."
     ),
     "noticias_yaml_banner": (
-        "Origen: `data/noticias.yaml` (demostración). Para historial real de tasas, "
-        "configure la BD, ejecute la ingestión y use `RATE_ALLOCATOR_DB_URL` si aplica."
+        "Mostrando `data/noticias.yaml`: la app no llegó al historial SCD2 (sin SQL/BD vacía/registro)."
     ),
     "noticias_yaml_after_db_error": (
         "No se pudo leer la base de datos. Se muestran las entradas de `data/noticias.yaml`."
@@ -137,6 +141,44 @@ def _fallback_rules() -> RegulatoryRules:
     return load_regulatory_rules_from_yaml(str(RULES_FILE))
 
 
+def _noticias_load_limit() -> int | None:
+    """Caps SCD2 rows rendered; env unset = default cap for safety."""
+    raw = os.environ.get(NOTICIAS_LIMIT_ENV)
+    if raw is None or str(raw).strip() == "":
+        return NOTICIAS_DEFAULT_LIMIT
+    s = str(raw).strip().lower()
+    if s == "all" or s == "none" or s == "-1":
+        return None
+    try:
+        n = int(s)
+        if n <= 0:
+            return None
+        return n
+    except ValueError:
+        return NOTICIAS_DEFAULT_LIMIT
+
+
+def _paragraph_noticia_es(
+    *,
+    institution: str,
+    tier_label: str,
+    old_rate: float,
+    new_rate: float,
+    effective_mx: str,
+    applied_mx: str,
+    note: str | None,
+) -> str:
+    note_s = (note or "").strip()
+    body = (
+        f"{institution}, tramo {tier_label}: la tasa nominal pasó de "
+        f"{old_rate:.2%} a {new_rate:.2%}. Vigente desde {effective_mx}. "
+        f"Registro aplicado en el sistema: {applied_mx}."
+    )
+    if note_s and note_s != "—":
+        body += f" Nota: {note_s}."
+    return body
+
+
 def _try_load_db_snapshot(
     db_url: str,
 ) -> tuple[list[Institution], RegulatoryRules | None] | None:
@@ -170,37 +212,56 @@ def _db_runtime_available() -> bool:
     return True
 
 
-def _noticias_rows_from_db_events(events) -> list[dict[str, str]]:
-    rows: list[dict[str, str]] = []
-    for e in events:
-        note = (e.note or "").strip()
-        rows.append(
-            {
-                "Vigente desde": _dt_mx_label(e.effective_from),
-                "Fecha aplicada": _dt_mx_label(e.applied_at),
-                "Institución": e.institution_name,
-                "Tramo": str(e.tier_index + 1),
-                "Cambio de tasa": f"{e.old_rate:.2%} → {e.new_rate:.2%}",
-                "Origen": e.source or "—",
-                "Nota": note or "—",
-            }
-        )
-    return rows
-
-
-def _noticias_rows_from_yaml(entries: list[YamlNoticiaEntry]) -> list[dict[str, str]]:
+def _noticias_paragraphs_db(events: list) -> list[str]:
     return [
-        {
-            "Vigente desde": _dt_mx_label(e.effective_from),
-            "Fecha aplicada": _dt_mx_label(e.applied_at),
-            "Institución": e.institution,
-            "Tramo": e.tier_display,
-            "Cambio de tasa": f"{e.old_rate:.2%} → {e.new_rate:.2%}",
-            "Origen": e.source or "—",
-            "Nota": e.note or "—",
-        }
-        for e in entries
+        _paragraph_noticia_es(
+            institution=e.institution_name,
+            tier_label=str(e.tier_index + 1),
+            old_rate=e.old_rate,
+            new_rate=e.new_rate,
+            effective_mx=_dt_mx_label(e.effective_from),
+            applied_mx=_dt_mx_label(e.applied_at),
+            note=e.note,
+        )
+        for e in events
     ]
+
+
+def _utc_aware_for_sort(dt: datetime) -> datetime:
+    return dt.astimezone(timezone.utc) if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _yaml_noticia_sort_key(ent: YamlNoticiaEntry) -> tuple:
+    ef = _utc_aware_for_sort(ent.effective_from)
+    ap = _utc_aware_for_sort(ent.applied_at)
+    try:
+        tn = int(ent.tier_display)
+    except (TypeError, ValueError):
+        tn = -1
+    return (-ef.timestamp(), -ap.timestamp(), ent.institution.lower(), tn)
+
+
+def _noticias_paragraphs_yaml(entries: list[YamlNoticiaEntry]) -> list[str]:
+    sorted_entries = sorted(entries, key=_yaml_noticia_sort_key)
+    return [
+        _paragraph_noticia_es(
+            institution=e.institution,
+            tier_label=e.tier_display,
+            old_rate=e.old_rate,
+            new_rate=e.new_rate,
+            effective_mx=_dt_mx_label(e.effective_from),
+            applied_mx=_dt_mx_label(e.applied_at),
+            note=e.note,
+        )
+        for e in sorted_entries
+    ]
+
+
+def _render_noticias_markdown(paragraphs: list[str]) -> None:
+    if not paragraphs:
+        return
+    body = "\n\n".join(f"{idx}. {p}" for idx, p in enumerate(paragraphs, start=1))
+    st.markdown(body)
 
 
 @st.cache_data(ttl=CACHE_LOAD_TTL_SECONDS, show_spinner="Cargando instituciones y reglas...")
@@ -293,8 +354,8 @@ def main() -> None:
     with st.expander(t["noticias"], expanded=False):
         st.caption(t["noticias_help"])
         yaml_entries = load_noticias_yaml(NOTICIAS_YAML_FILE)
-        yaml_rows = _noticias_rows_from_yaml(yaml_entries)
-        db_rows: list[dict[str, str]] = []
+        yaml_lines = _noticias_paragraphs_yaml(yaml_entries)
+        db_lines: list[str] = []
         db_read_failed = False
         if _db_runtime_available():
             from rate_allocator.persistence import create_db_engine, session_scope
@@ -304,21 +365,24 @@ def main() -> None:
             try:
                 engine = create_db_engine(_resolve_database_url())
                 with session_scope(engine) as session:
-                    events = load_recent_tier_rate_changes(session, limit=50)
-                db_rows = _noticias_rows_from_db_events(events)
+                    events = load_recent_tier_rate_changes(
+                        session, limit=_noticias_load_limit()
+                    )
+                db_lines = _noticias_paragraphs_db(events)
             except SQLAlchemyError:
                 db_read_failed = True
 
-        if db_rows:
-            st.table(pd.DataFrame(db_rows))
-        elif db_read_failed and yaml_rows:
-            st.info(t["noticias_yaml_after_db_error"])
-            st.table(pd.DataFrame(yaml_rows))
+        if db_lines:
+            _render_noticias_markdown(db_lines)
+            st.caption(t["noticias_from_db_footer"])
+        elif db_read_failed and yaml_lines:
+            st.warning(t["noticias_yaml_after_db_error"])
+            _render_noticias_markdown(yaml_lines)
         elif db_read_failed:
             st.info(t["noticias_db_unavailable"])
-        elif yaml_rows:
-            st.info(t["noticias_yaml_banner"])
-            st.table(pd.DataFrame(yaml_rows))
+        elif yaml_lines:
+            st.warning(t["noticias_yaml_banner"])
+            _render_noticias_markdown(yaml_lines)
         elif _db_runtime_available() and not db_read_failed:
             st.info(t["noticias_empty"])
         else:

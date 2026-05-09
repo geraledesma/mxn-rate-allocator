@@ -23,8 +23,11 @@ With **`RATE_ALLOCATOR_DB_URL`** set, the UI reads institutions and MX regulator
 ```bash
 export RATE_ALLOCATOR_DB_URL="sqlite:///$(pwd)/data/rates.db"
 python scripts/ingest_yaml.py data/sample1.yaml
+python scripts/backfill_history_2026_05_08.py
 streamlit run streamlit_app.py
 ```
+
+On **Streamlit Community Cloud**, store the database URL plus this project’s Postgres/SQLite as `RATE_ALLOCATOR_DB_URL` in app secrets—without it the allocator falls back to checked-in YAML and **Noticias** only mirrors SCD2 from the BD you expose there.
 
 The demo YAML includes example rates such as **PlataAhorroPlus**; change them and run ingest again when you refresh published yields.
 
