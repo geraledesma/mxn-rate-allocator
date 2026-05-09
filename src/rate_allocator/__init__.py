@@ -27,7 +27,11 @@ from rate_allocator.reporting.summary import (
 )
 from rate_allocator.reporting.visuals import plot_net_interest_by_tranche_stacked
 from rate_allocator.workflows.analysis import summarize_and_plot
-from rate_allocator.workflows.interactive_report import build_interactive_report_html
+from rate_allocator.workflows.interactive_report import (
+    build_allocation_combo_figure,
+    build_interactive_report_html,
+    build_portfolio_path_figure,
+)
 
 __all__ = [
     "allocate",
@@ -51,5 +55,7 @@ __all__ = [
     "plot_net_interest_by_tranche_stacked",
     "summarize_and_plot",
     "build_interactive_report_html",
+    "build_allocation_combo_figure",
+    "build_portfolio_path_figure",
     "tier_activation_cost",
 ]

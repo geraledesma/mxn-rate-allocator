@@ -118,6 +118,7 @@ def build_interactive_report_html(
     periods_per_year: int = 365,
     regulatory_rules: RegulatoryRules | None = None,
     locale: ReportLocale = "en",
+    embed_charts: bool = True,
 ) -> str:
     """Build the HTML fragment displayed by the interactive notebook."""
     rules = regulatory_rules or RegulatoryRules()
@@ -136,19 +137,110 @@ def build_interactive_report_html(
 
     if raw_rows:
         parts.extend(_rows_table_and_footnotes(raw_rows, footnote_lines, msgs))
-        parts.extend(
-            _charts_html(
-                result,
-                institutions,
-                institution_totals,
-                horizon_years,
-                rules,
-                msgs,
+        if embed_charts:
+            parts.extend(
+                _charts_html(
+                    result,
+                    institutions,
+                    institution_totals,
+                    horizon_years,
+                    rules,
+                    msgs,
+                    locale=locale,
+                    periods_per_year=periods_per_year,
+                )
             )
-        )
 
     parts.append("</div>")
     return "\n".join(parts)
+
+
+def build_allocation_combo_figure(
+    result: AllocationResult,
+    institutions: list[Institution],
+    institution_totals: list[tuple[str, float]],
+    *,
+    horizon_years: float = 1.0,
+    periods_per_year: int = 365,
+    regulatory_rules: RegulatoryRules | None = None,
+    locale: ReportLocale = "en",
+):
+    """Matplotlib Figure: principal pie + net interest/tranche bars (1×2 subplot)."""
+    try:
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError as e:
+        raise ModuleNotFoundError(
+            "matplotlib is required for build_allocation_combo_figure"
+        ) from e
+
+    rules = regulatory_rules or RegulatoryRules()
+    msgs = _report_strings(locale)
+    names = [name for name, _amount in institution_totals]
+    values = [float(amount) for _name, amount in institution_totals]
+
+    fig, axes = plt.subplots(
+        1,
+        2,
+        figsize=(10, 4),
+        gridspec_kw={"width_ratios": [1, 1], "wspace": 0.25},
+        constrained_layout=True,
+    )
+    axes[0].set_title(msgs["pie_title"])
+    if sum(values) <= 0:
+        axes[0].text(
+            0.5,
+            0.5,
+            "—",
+            ha="center",
+            va="center",
+            transform=axes[0].transAxes,
+        )
+    else:
+        axes[0].pie(values, labels=names, autopct="%1.1f%%", startangle=90)
+    plot_net_interest_by_tranche_stacked(
+        axes[1],
+        result,
+        institutions,
+        horizon_years=horizon_years,
+        regulatory_rules=rules,
+        title=msgs["tranche_chart_title"],
+        ylabel=msgs["tranche_chart_ylabel"],
+        gross_bar_label=msgs["tranche_gross_label"],
+        fees_bar_label=msgs["tranche_fees_label"],
+        empty_text=msgs["tranche_empty_text"],
+    )
+    return fig
+
+
+def build_portfolio_path_figure(
+    result: AllocationResult,
+    institutions: list[Institution],
+    *,
+    max_days: int = 365,
+    periods_per_year: int = 365,
+    locale: ReportLocale = "en",
+):
+    """Matplotlib Figure: portfolio value compound vs simple path."""
+    try:
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError as e:
+        raise ModuleNotFoundError(
+            "matplotlib is required for build_portfolio_path_figure"
+        ) from e
+
+    msgs = _report_strings(locale)
+    days, compound_vals, simple_vals = portfolio_value_path(
+        result, institutions, max_days=max_days, periods_per_year=periods_per_year
+    )
+    fig, ax = plt.subplots(figsize=(10, 4), constrained_layout=True)
+    ax.plot(days, compound_vals, label=msgs["path_legend_compound"])
+    ax.plot(days, simple_vals, label=msgs["path_legend_simple"])
+    ax.set_xlabel(msgs["path_xlabel"])
+    ax.set_ylabel(msgs["path_ylabel"])
+    ax.set_title(msgs["path_title"])
+    ax.legend()
+    ax.grid(alpha=0.3)
+    return fig
 
 
 def _build_report_rows(
@@ -318,51 +410,32 @@ def _charts_html(
     horizon_years: float,
     regulatory_rules: RegulatoryRules,
     msgs: dict[str, str],
+    *,
+    locale: ReportLocale,
+    periods_per_year: int,
 ) -> list[str]:
     try:
-        import matplotlib.pyplot as plt
+        fig_combo = build_allocation_combo_figure(
+            result,
+            institutions,
+            institution_totals,
+            horizon_years=horizon_years,
+            periods_per_year=periods_per_year,
+            regulatory_rules=regulatory_rules,
+            locale=locale,
+        )
+        fig_path = build_portfolio_path_figure(
+            result,
+            institutions,
+            max_days=365,
+            periods_per_year=periods_per_year,
+            locale=locale,
+        )
     except ModuleNotFoundError:
         return [msgs["matplotlib_required"]]
 
-    names = [name for name, _amount in institution_totals]
-    values = [amount for _name, amount in institution_totals]
-
-    fig, axes = plt.subplots(
-        1,
-        2,
-        figsize=(10, 4),
-        gridspec_kw={"width_ratios": [1, 1], "wspace": 0.25},
-    )
-    axes[0].pie(values, labels=names, autopct="%1.1f%%", startangle=90)
-    axes[0].set_title(msgs["pie_title"])
-    plot_net_interest_by_tranche_stacked(
-        axes[1],
-        result,
-        institutions,
-        horizon_years=horizon_years,
-        regulatory_rules=regulatory_rules,
-        title=msgs["tranche_chart_title"],
-        ylabel=msgs["tranche_chart_ylabel"],
-        gross_bar_label=msgs["tranche_gross_label"],
-        fees_bar_label=msgs["tranche_fees_label"],
-        empty_text=msgs["tranche_empty_text"],
-    )
-    plt.tight_layout()
-    b64a = _figure_to_png_b64(fig)
-
-    days, compound_vals, simple_vals = portfolio_value_path(
-        result, institutions, max_days=365, periods_per_year=365
-    )
-    fig2, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(days, compound_vals, label=msgs["path_legend_compound"])
-    ax.plot(days, simple_vals, label=msgs["path_legend_simple"])
-    ax.set_xlabel(msgs["path_xlabel"])
-    ax.set_ylabel(msgs["path_ylabel"])
-    ax.set_title(msgs["path_title"])
-    ax.legend()
-    ax.grid(alpha=0.3)
-    plt.tight_layout()
-    b64b = _figure_to_png_b64(fig2)
+    b64a = _figure_to_png_b64(fig_combo)
+    b64b = _figure_to_png_b64(fig_path)
     return [
         f'<h4>{html_mod.escape(msgs["h4_charts"])}</h4>'
         f'<p><img src="data:image/png;base64,{b64a}" alt="{html_mod.escape(msgs["img_alt_combo"])}"/></p>',

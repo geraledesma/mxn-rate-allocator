@@ -13,6 +13,8 @@ dependencies = [
     "scipy>=1.10.0",
     "numpy>=1.24.0",
     "pyyaml>=6.0",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +35,9 @@ streamlit = [
     "matplotlib>=3.7.0",
     "pandas>=2.0.0",
     "altair>=5.0.0",
+]
+postgres = [
+    "psycopg[binary]>=3.1",
 ]
 
 [tool.setuptools]
