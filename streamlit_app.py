@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import altair as alt
 import matplotlib
 
 matplotlib.use("Agg")
@@ -63,6 +62,10 @@ STRINGS = {
     "noticias_help": "Cambios recientes en tasas nominales por tramo (histórico SCD2 en la BD).",
     "noticias_empty": "No hay cambios de tasa registrados en la BD aún.",
     "noticias_no_db": "Las noticias de tasas requieren una base de datos ingestada.",
+    "noticias_no_deps": (
+        "No se pudo leer el historial de noticias desde la BD porque faltan dependencias "
+        "de base de datos en este despliegue."
+    ),
     "chart_section": "Asignación de capital por institución",
     "path_section": "Trayectoria del portafolio",
     "pie_warn_empty": "No hay principal asignado para el gráfico circular.",
@@ -176,37 +179,19 @@ def _sync_total_from_number() -> None:
     st.session_state.total_mxn = int(st.session_state._total_num)
 
 
-def _institution_allocation_chart(df: pd.DataFrame, title: str, x_title: str) -> alt.Chart:
-    bar = (
-        alt.Chart(df)
-        .mark_bar(cornerRadiusEnd=4, color="#2563eb")
-        .encode(
-            x=alt.X("monto_q:Q", title=x_title).axis(format=",.0f"),
-            y=alt.Y("institucion:N", title="", sort="-x"),
-            tooltip=[
-                alt.Tooltip("institucion:N", title="Institución"),
-                alt.Tooltip("monto_q:Q", title="Monto (MXN)", format=",.2f"),
-            ],
-        )
-    )
-    text = (
-        alt.Chart(df)
-        .mark_text(align="left", baseline="middle", dx=6, fontSize=11)
-        .encode(
-            x=alt.X("monto_q:Q"),
-            y=alt.Y("institucion:N", sort="-x"),
-            text=alt.Text("etiqueta:N"),
-        )
-    )
-    h = len(df)
-    chart = (
-        (bar + text)
-        .properties(height=max(220, min(540, h * 36)), padding=12, title=title)
-        .configure_axis(labelFontSize=12, titleFontSize=13)
-        .configure_title(fontSize=15, anchor="start")
-        .interactive()
-    )
-    return chart
+def _institution_allocation_figure(df: pd.DataFrame, title: str, x_title: str):
+    import matplotlib.pyplot as plt
+
+    df_sorted = df.sort_values("monto_q", ascending=True).reset_index(drop=True)
+    fig_h = max(3.0, min(7.5, 0.45 * len(df_sorted)))
+    fig, ax = plt.subplots(figsize=(10, fig_h), constrained_layout=True)
+    ax.barh(df_sorted["institucion"], df_sorted["monto_q"], color="#2563eb")
+    ax.set_title(title)
+    ax.set_xlabel(x_title)
+    ax.grid(axis="x", alpha=0.2)
+    for idx, value in enumerate(df_sorted["monto_q"]):
+        ax.text(value, idx, f"  {value:,.0f}", va="center", fontsize=10)
+    return fig
 
 
 def _format_mx_compact(value: float) -> str:
@@ -238,42 +223,41 @@ def main() -> None:
     if db_configured and source_key != "db" and not _db_runtime_available():
         st.warning(t["db_fallback_missing_deps"])
 
-    if db_configured:
-        with st.expander(t["noticias"], expanded=False):
-            st.caption(t["noticias_help"])
-            db_url = os.environ.get(DB_URL_ENV)
-            if not db_url:
-                st.info(t["noticias_no_db"])
+    with st.expander(t["noticias"], expanded=False):
+        st.caption(t["noticias_help"])
+        db_url = os.environ.get(DB_URL_ENV)
+        if not db_url:
+            st.info(t["noticias_no_db"])
+        else:
+            try:
+                from rate_allocator.persistence import create_db_engine, session_scope
+                from rate_allocator.persistence.history import (
+                    load_recent_tier_rate_changes,
+                )
+            except ModuleNotFoundError:
+                st.info(t["noticias_no_deps"])
+                events = []
             else:
-                try:
-                    from rate_allocator.persistence import create_db_engine, session_scope
-                    from rate_allocator.persistence.history import (
-                        load_recent_tier_rate_changes,
-                    )
-                except ModuleNotFoundError:
-                    st.info(t["noticias_no_db"])
-                    events = []
-                else:
-                    engine = create_db_engine(db_url)
-                    with session_scope(engine) as session:
-                        events = load_recent_tier_rate_changes(session, limit=50)
-                if not events:
-                    st.info(t["noticias_empty"])
-                else:
-                    rows = [
-                        {
-                            "Fecha (aplicada)": e.applied_at.astimezone(MX_ZONE).strftime(
-                                "%Y-%m-%d %H:%M %Z"
-                            ),
-                            "Institución": e.institution_name,
-                            "Tramo": e.tier_index + 1,
-                            "Tasa anterior": f"{e.old_rate:.2%}",
-                            "Tasa nueva": f"{e.new_rate:.2%}",
-                            "Origen": e.source or "—",
-                        }
-                        for e in events
-                    ]
-                    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+                engine = create_db_engine(db_url)
+                with session_scope(engine) as session:
+                    events = load_recent_tier_rate_changes(session, limit=50)
+            if not events:
+                st.info(t["noticias_empty"])
+            else:
+                rows = [
+                    {
+                        "Fecha (aplicada)": e.applied_at.astimezone(MX_ZONE).strftime(
+                            "%Y-%m-%d %H:%M %Z"
+                        ),
+                        "Institución": e.institution_name,
+                        "Tramo": e.tier_index + 1,
+                        "Tasa anterior": f"{e.old_rate:.2%}",
+                        "Tasa nueva": f"{e.new_rate:.2%}",
+                        "Origen": e.source or "—",
+                    }
+                    for e in events
+                ]
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     st.title(t["title"])
     st.caption(t["caption"])
@@ -408,12 +392,12 @@ def main() -> None:
             lambda v: _format_mx_compact(float(v)),
         )
         st.markdown(f"##### {t['chart_alloc_title']}")
-        chart = _institution_allocation_chart(
-            df_chart.sort_values("monto_q", ascending=True),
-            title="",
+        fig_alloc = _institution_allocation_figure(
+            df_chart,
+            title=t["chart_alloc_title"],
             x_title=t["chart_tooltip_monto"],
         )
-        st.altair_chart(chart, use_container_width=True)
+        st.pyplot(fig_alloc, clear_figure=True)
 
         st.markdown(f"##### {t['table_inst_title']}")
         tbl = pd.DataFrame(
