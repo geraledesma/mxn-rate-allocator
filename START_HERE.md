@@ -18,6 +18,16 @@ pip install -e ".[streamlit]"
 streamlit run streamlit_app.py
 ```
 
+With **`RATE_ALLOCATOR_DB_URL`** set, the UI reads institutions and MX regulatory rules from the database (YAML fallback applies if DB institutions are missing or rules absent). Hit **Recargar datos** in the sidebar after re-ingesting. Example:
+
+```bash
+export RATE_ALLOCATOR_DB_URL="sqlite:///$(pwd)/data/rates.db"
+python scripts/ingest_yaml.py data/sample1.yaml
+streamlit run streamlit_app.py
+```
+
+The demo YAML includes example rates such as **PlataAhorroPlus**; change them and run ingest again when you refresh published yields.
+
 ### Option B — Jupyter notebook
 
 ```bash
