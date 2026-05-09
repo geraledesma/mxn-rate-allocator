@@ -15,6 +15,7 @@ import pandas as pd
 import streamlit as st
 
 from rate_allocator import Institution, RegulatoryRules, allocate
+from rate_allocator.adapters.noticias_yaml import YamlNoticiaEntry, load_noticias_yaml
 from rate_allocator.adapters.regulatory_loader import load_regulatory_rules_from_yaml
 from rate_allocator.adapters.yaml_loader import load_institutions_with_overrides
 from rate_allocator.reporting.summary import summarize_allocation
@@ -28,6 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parent
 DATA_FILE = REPO_ROOT / "data" / "sample1.yaml"
 RULES_FILE = REPO_ROOT / "data" / "regulatory_rules.mx.yaml"
 DEFAULT_DB_FILE = REPO_ROOT / "data" / "rates.db"
+NOTICIAS_YAML_FILE = REPO_ROOT / "data" / "noticias.yaml"
 MX_ZONE = ZoneInfo("America/Mexico_City")
 DB_URL_ENV = "RATE_ALLOCATOR_DB_URL"
 
@@ -77,8 +79,15 @@ STRINGS = {
         "Configura `RATE_ALLOCATOR_DB_URL` o crea `data/rates.db` con `scripts/ingest_yaml.py`."
     ),
     "noticias_no_deps": (
-        "No se pudo leer el historial de noticias desde la BD porque faltan dependencias "
-        "de base de datos en este despliegue."
+        "No hay motor SQL (p. ej. SQLAlchemy) en este despliegue y `data/noticias.yaml` "
+        "no tiene entradas o no existe. Añada dependencias o el archivo YAML de noticias."
+    ),
+    "noticias_yaml_banner": (
+        "Origen: `data/noticias.yaml` (demostración). Para historial real de tasas, "
+        "configure la BD, ejecute la ingestión y use `RATE_ALLOCATOR_DB_URL` si aplica."
+    ),
+    "noticias_yaml_after_db_error": (
+        "No se pudo leer la base de datos. Se muestran las entradas de `data/noticias.yaml`."
     ),
     "chart_section": "Asignación de capital por institución",
     "path_section": "Trayectoria del portafolio",
@@ -153,13 +162,45 @@ def _try_load_db_snapshot(
 
 
 def _db_runtime_available() -> bool:
+    """True when SQLAlchemy is importable (required for SCD2 noticias from the DB)."""
     try:
         import sqlalchemy  # noqa: F401
-        from rate_allocator.adapters import db_loader  # noqa: F401
-        from rate_allocator.persistence import history  # noqa: F401
     except ModuleNotFoundError:
         return False
     return True
+
+
+def _noticias_rows_from_db_events(events) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for e in events:
+        note = (e.note or "").strip()
+        rows.append(
+            {
+                "Vigente desde": _dt_mx_label(e.effective_from),
+                "Fecha aplicada": _dt_mx_label(e.applied_at),
+                "Institución": e.institution_name,
+                "Tramo": str(e.tier_index + 1),
+                "Cambio de tasa": f"{e.old_rate:.2%} → {e.new_rate:.2%}",
+                "Origen": e.source or "—",
+                "Nota": note or "—",
+            }
+        )
+    return rows
+
+
+def _noticias_rows_from_yaml(entries: list[YamlNoticiaEntry]) -> list[dict[str, str]]:
+    return [
+        {
+            "Vigente desde": _dt_mx_label(e.effective_from),
+            "Fecha aplicada": _dt_mx_label(e.applied_at),
+            "Institución": e.institution,
+            "Tramo": e.tier_display,
+            "Cambio de tasa": f"{e.old_rate:.2%} → {e.new_rate:.2%}",
+            "Origen": e.source or "—",
+            "Nota": e.note or "—",
+        }
+        for e in entries
+    ]
 
 
 @st.cache_data(ttl=CACHE_LOAD_TTL_SECONDS, show_spinner="Cargando instituciones y reglas...")
@@ -251,44 +292,37 @@ def main() -> None:
 
     with st.expander(t["noticias"], expanded=False):
         st.caption(t["noticias_help"])
-        if not _db_runtime_available():
-            st.info(t["noticias_no_deps"])
-        else:
+        yaml_entries = load_noticias_yaml(NOTICIAS_YAML_FILE)
+        yaml_rows = _noticias_rows_from_yaml(yaml_entries)
+        db_rows: list[dict[str, str]] = []
+        db_read_failed = False
+        if _db_runtime_available():
             from rate_allocator.persistence import create_db_engine, session_scope
             from rate_allocator.persistence.history import load_recent_tier_rate_changes
             from sqlalchemy.exc import SQLAlchemyError
 
-            events: list = []
-            db_read_failed = False
             try:
                 engine = create_db_engine(_resolve_database_url())
                 with session_scope(engine) as session:
                     events = load_recent_tier_rate_changes(session, limit=50)
+                db_rows = _noticias_rows_from_db_events(events)
             except SQLAlchemyError:
                 db_read_failed = True
-                st.info(t["noticias_db_unavailable"])
-            if not db_read_failed and not events:
-                st.info(t["noticias_empty"])
-            elif events:
-                rows = []
-                for e in events:
-                    vigente = _dt_mx_label(e.effective_from)
-                    aplicada = _dt_mx_label(e.applied_at)
-                    cambio = f"{e.old_rate:.2%} → {e.new_rate:.2%}"
-                    note = (e.note or "").strip()
-                    rows.append(
-                        {
-                            "Vigente desde": vigente,
-                            "Fecha aplicada": aplicada,
-                            "Institución": e.institution_name,
-                            "Tramo": str(e.tier_index + 1),
-                            "Cambio de tasa": cambio,
-                            "Origen": e.source or "—",
-                            "Nota": note or "—",
-                        }
-                    )
-                # All string cells: avoids Arrow/Vega column_config edge cases in the frontend.
-                st.table(pd.DataFrame(rows))
+
+        if db_rows:
+            st.table(pd.DataFrame(db_rows))
+        elif db_read_failed and yaml_rows:
+            st.info(t["noticias_yaml_after_db_error"])
+            st.table(pd.DataFrame(yaml_rows))
+        elif db_read_failed:
+            st.info(t["noticias_db_unavailable"])
+        elif yaml_rows:
+            st.info(t["noticias_yaml_banner"])
+            st.table(pd.DataFrame(yaml_rows))
+        elif _db_runtime_available() and not db_read_failed:
+            st.info(t["noticias_empty"])
+        else:
+            st.info(t["noticias_no_deps"])
 
     st.title(t["title"])
     st.caption(t["caption"])

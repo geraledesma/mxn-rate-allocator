@@ -1,0 +1,11 @@
+# Filas opcionales para la sección «Noticias» en Streamlit cuando no hay SQLAlchemy/BD
+# o la BD aún no tiene historial SCD2. Tasas como fracción anual (0.12 = 12 %).
+entries:
+  - institution: PlataAhorroPlus
+    tier: 1
+    old_rate: 0.12
+    new_rate: 0.10
+    effective_from: "2026-05-01"
+    applied_at: "2026-05-08"
+    source: demostración YAML
+    note: Misma institución que en data/sample1.yaml; en producción use la BD ingestada.
