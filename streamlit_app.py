@@ -16,11 +16,8 @@ import pandas as pd
 import streamlit as st
 
 from rate_allocator import Institution, RegulatoryRules, allocate
-from rate_allocator.adapters.db_loader import load_institutions_from_db, load_regulatory_rules_from_db
 from rate_allocator.adapters.regulatory_loader import load_regulatory_rules_from_yaml
 from rate_allocator.adapters.yaml_loader import load_institutions_with_overrides
-from rate_allocator.persistence import DB_URL_ENV, create_db_engine, session_scope
-from rate_allocator.persistence.history import load_recent_tier_rate_changes
 from rate_allocator.reporting.summary import summarize_allocation
 from rate_allocator.workflows.interactive_report import (
     build_allocation_combo_figure,
@@ -32,6 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parent
 DATA_FILE = REPO_ROOT / "data" / "sample1.yaml"
 RULES_FILE = REPO_ROOT / "data" / "regulatory_rules.mx.yaml"
 MX_ZONE = ZoneInfo("America/Mexico_City")
+DB_URL_ENV = "RATE_ALLOCATOR_DB_URL"
 
 TOTAL_MIN = 1
 TOTAL_MAX = 1_200_000
@@ -56,6 +54,10 @@ STRINGS = {
     "date_mx": "**Hoy** ({weekday}, {iso} — America/Mexico_City)",
     "source_db": "Fuente de tasas y reglas: **base de datos**",
     "source_yaml": "Fuente de tasas y reglas: **archivo YAML (demo)**",
+    "db_fallback_missing_deps": (
+        "Se configuró `RATE_ALLOCATOR_DB_URL`, pero faltan dependencias de BD "
+        "(por ejemplo `sqlalchemy`). Se usa fallback a YAML para evitar que la app falle."
+    ),
     "reload": "Recargar datos",
     "noticias": "Noticias",
     "noticias_help": "Cambios recientes en tasas nominales por tramo (histórico SCD2 en la BD).",
@@ -102,6 +104,36 @@ def _fallback_rules() -> RegulatoryRules:
     return load_regulatory_rules_from_yaml(str(RULES_FILE))
 
 
+def _try_load_db_snapshot(
+    db_url: str,
+) -> tuple[list[Institution], RegulatoryRules | None] | None:
+    """Return DB snapshot or None when DB modules are unavailable."""
+    try:
+        from rate_allocator.adapters.db_loader import (
+            load_institutions_from_db,
+            load_regulatory_rules_from_db,
+        )
+        from rate_allocator.persistence import create_db_engine, session_scope
+    except ModuleNotFoundError:
+        return None
+
+    engine = create_db_engine(db_url)
+    with session_scope(engine) as session:
+        institutions = load_institutions_from_db(session)
+        rules = load_regulatory_rules_from_db(session, country="MX")
+    return institutions, rules
+
+
+def _db_runtime_available() -> bool:
+    try:
+        import sqlalchemy  # noqa: F401
+        from rate_allocator.adapters import db_loader  # noqa: F401
+        from rate_allocator.persistence import history  # noqa: F401
+    except ModuleNotFoundError:
+        return False
+    return True
+
+
 @st.cache_data(ttl=CACHE_LOAD_TTL_SECONDS, show_spinner="Cargando instituciones y reglas...")
 def _load_snapshot(
     _reload_nonce: int,
@@ -113,16 +145,19 @@ def _load_snapshot(
         rules = _fallback_rules()
         return institutions, rules, "yaml", False
 
-    engine = create_db_engine(db_url)
-    with session_scope(engine) as session:
-        institutions = load_institutions_from_db(session)
-        rules = load_regulatory_rules_from_db(session, country="MX")
-        if institutions:
-            resolved_rules = rules if rules is not None else _fallback_rules()
-            return institutions, resolved_rules, "db", True
-        inst_yaml = load_institutions_with_overrides(str(DATA_FILE), {})
+    db_snapshot = _try_load_db_snapshot(db_url)
+    if db_snapshot is None:
+        institutions = load_institutions_with_overrides(str(DATA_FILE), {})
+        rules = _fallback_rules()
+        return institutions, rules, "yaml", True
+
+    institutions, rules = db_snapshot
+    if institutions:
         resolved_rules = rules if rules is not None else _fallback_rules()
-        return inst_yaml, resolved_rules, "yaml", True
+        return institutions, resolved_rules, "db", True
+    inst_yaml = load_institutions_with_overrides(str(DATA_FILE), {})
+    resolved_rules = rules if rules is not None else _fallback_rules()
+    return inst_yaml, resolved_rules, "yaml", True
 
 
 def _brief_constraints_label(inst) -> str:
@@ -200,6 +235,8 @@ def main() -> None:
         st.caption(t["source_db"])
     else:
         st.caption(t["source_yaml"])
+    if db_configured and source_key != "db" and not _db_runtime_available():
+        st.warning(t["db_fallback_missing_deps"])
 
     if db_configured:
         with st.expander(t["noticias"], expanded=False):
@@ -208,9 +245,18 @@ def main() -> None:
             if not db_url:
                 st.info(t["noticias_no_db"])
             else:
-                engine = create_db_engine(db_url)
-                with session_scope(engine) as session:
-                    events = load_recent_tier_rate_changes(session, limit=50)
+                try:
+                    from rate_allocator.persistence import create_db_engine, session_scope
+                    from rate_allocator.persistence.history import (
+                        load_recent_tier_rate_changes,
+                    )
+                except ModuleNotFoundError:
+                    st.info(t["noticias_no_db"])
+                    events = []
+                else:
+                    engine = create_db_engine(db_url)
+                    with session_scope(engine) as session:
+                        events = load_recent_tier_rate_changes(session, limit=50)
                 if not events:
                     st.info(t["noticias_empty"])
                 else:
