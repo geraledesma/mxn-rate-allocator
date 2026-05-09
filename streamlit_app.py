@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -41,7 +41,8 @@ STRINGS = {
     "caption": (
         "Elige instituciones y el total en MXN (deslizador o campo numérico, pasos de 100). "
         "Las tasas y comisiones salen del archivo YAML de ejemplo o de la base de datos si "
-        f"configuraste `{DB_URL_ENV}`. Ejecuta `scripts/ingest_yaml.py` y usa **Recargar datos**. "
+        f"configuraste `{DB_URL_ENV}` o existe `data/rates.db` por defecto. Ejecuta `scripts/ingest_yaml.py` "
+        "y usa **Recargar datos**. "
         "El horizonte en años ajusta el compuesto al plazo y el modelado de comisiones en el informe."
     ),
     "institutions": "Instituciones a incluir",
@@ -59,9 +60,16 @@ STRINGS = {
     ),
     "reload": "Recargar datos",
     "noticias": "Noticias",
-    "noticias_help": "Cambios recientes en tasas nominales por tramo (histórico SCD2 en la BD).",
-    "noticias_empty": "No hay cambios de tasa registrados en la BD aún.",
-    "noticias_no_db": "Las noticias de tasas requieren una base de datos ingestada.",
+    "noticias_help": (
+        "Cambios recientes en tasas nominales por tramo (histórico SCD2). "
+        "La columna «Vigente desde» es la fecha de vigencia del nuevo tramo; "
+        "«Fecha aplicada» es cuándo se registró el lote en el sistema."
+    ),
+    "noticias_empty": "No hay cambios de tasa registrados en la BD aún (o la BD está vacía).",
+    "noticias_db_unavailable": (
+        "No se pudo leer la base de datos (archivo ausente, esquema sin migrar o error de conexión). "
+        "Configura `RATE_ALLOCATOR_DB_URL` o crea `data/rates.db` con `scripts/ingest_yaml.py`."
+    ),
     "noticias_no_deps": (
         "No se pudo leer el historial de noticias desde la BD porque faltan dependencias "
         "de base de datos en este despliegue."
@@ -88,6 +96,13 @@ STRINGS = {
 }
 
 
+def _dt_mx_label(dt: datetime) -> str:
+    """Format a DB timestamp for display in America/Mexico_City."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(MX_ZONE).strftime("%Y-%m-%d %H:%M %Z")
+
+
 def _today_mx_label() -> str:
     d = datetime.now(MX_ZONE).date()
     weekdays = (
@@ -110,20 +125,24 @@ def _fallback_rules() -> RegulatoryRules:
 def _try_load_db_snapshot(
     db_url: str,
 ) -> tuple[list[Institution], RegulatoryRules | None] | None:
-    """Return DB snapshot or None when DB modules are unavailable."""
+    """Return DB snapshot or None when DB modules are unavailable or the DB is unreadable."""
     try:
         from rate_allocator.adapters.db_loader import (
             load_institutions_from_db,
             load_regulatory_rules_from_db,
         )
         from rate_allocator.persistence import create_db_engine, session_scope
+        from sqlalchemy.exc import SQLAlchemyError
     except ModuleNotFoundError:
         return None
 
-    engine = create_db_engine(db_url)
-    with session_scope(engine) as session:
-        institutions = load_institutions_from_db(session)
-        rules = load_regulatory_rules_from_db(session, country="MX")
+    try:
+        engine = create_db_engine(db_url)
+        with session_scope(engine) as session:
+            institutions = load_institutions_from_db(session)
+            rules = load_regulatory_rules_from_db(session, country="MX")
+    except SQLAlchemyError:
+        return None
     return institutions, rules
 
 
@@ -141,26 +160,28 @@ def _db_runtime_available() -> bool:
 def _load_snapshot(
     _reload_nonce: int,
 ) -> tuple[list[Institution], RegulatoryRules, str, bool]:
-    """Return (institutions, rules, source_key_db_or_yaml, db_url_was_set)."""
-    db_url = os.environ.get(DB_URL_ENV)
-    if not db_url:
-        institutions = load_institutions_with_overrides(str(DATA_FILE), {})
-        rules = _fallback_rules()
-        return institutions, rules, "yaml", False
+    """Return (institutions, rules, source_key, explicit_db_url_in_env).
 
+    Uses ``RATE_ALLOCATOR_DB_URL`` when set; otherwise the default SQLite file
+    from ``get_database_url()`` (``data/rates.db`` relative to the package).
+    """
+    from rate_allocator.persistence import get_database_url
+
+    explicit_db_url_in_env = os.environ.get(DB_URL_ENV) is not None
+    db_url = get_database_url()
     db_snapshot = _try_load_db_snapshot(db_url)
     if db_snapshot is None:
         institutions = load_institutions_with_overrides(str(DATA_FILE), {})
         rules = _fallback_rules()
-        return institutions, rules, "yaml", True
+        return institutions, rules, "yaml", explicit_db_url_in_env
 
     institutions, rules = db_snapshot
     if institutions:
         resolved_rules = rules if rules is not None else _fallback_rules()
-        return institutions, resolved_rules, "db", True
+        return institutions, resolved_rules, "db", explicit_db_url_in_env
     inst_yaml = load_institutions_with_overrides(str(DATA_FILE), {})
     resolved_rules = rules if rules is not None else _fallback_rules()
-    return inst_yaml, resolved_rules, "yaml", True
+    return inst_yaml, resolved_rules, "yaml", explicit_db_url_in_env
 
 
 def _brief_constraints_label(inst) -> str:
@@ -225,39 +246,44 @@ def main() -> None:
 
     with st.expander(t["noticias"], expanded=False):
         st.caption(t["noticias_help"])
-        db_url = os.environ.get(DB_URL_ENV)
-        if not db_url:
-            st.info(t["noticias_no_db"])
+        if not _db_runtime_available():
+            st.info(t["noticias_no_deps"])
         else:
+            from rate_allocator.persistence import create_db_engine, get_database_url, session_scope
+            from rate_allocator.persistence.history import load_recent_tier_rate_changes
+            from sqlalchemy.exc import SQLAlchemyError
+
+            events: list = []
+            db_read_failed = False
             try:
-                from rate_allocator.persistence import create_db_engine, session_scope
-                from rate_allocator.persistence.history import (
-                    load_recent_tier_rate_changes,
-                )
-            except ModuleNotFoundError:
-                st.info(t["noticias_no_deps"])
-                events = []
-            else:
-                engine = create_db_engine(db_url)
+                engine = create_db_engine(get_database_url())
                 with session_scope(engine) as session:
                     events = load_recent_tier_rate_changes(session, limit=50)
-            if not events:
+            except SQLAlchemyError:
+                db_read_failed = True
+                st.info(t["noticias_db_unavailable"])
+            if not db_read_failed and not events:
                 st.info(t["noticias_empty"])
-            else:
-                rows = [
-                    {
-                        "Fecha (aplicada)": e.applied_at.astimezone(MX_ZONE).strftime(
-                            "%Y-%m-%d %H:%M %Z"
-                        ),
-                        "Institución": e.institution_name,
-                        "Tramo": e.tier_index + 1,
-                        "Tasa anterior": f"{e.old_rate:.2%}",
-                        "Tasa nueva": f"{e.new_rate:.2%}",
-                        "Origen": e.source or "—",
-                    }
-                    for e in events
-                ]
-                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            elif events:
+                rows = []
+                for e in events:
+                    vigente = _dt_mx_label(e.effective_from)
+                    aplicada = _dt_mx_label(e.applied_at)
+                    cambio = f"{e.old_rate:.2%} → {e.new_rate:.2%}"
+                    note = (e.note or "").strip()
+                    rows.append(
+                        {
+                            "Vigente desde": vigente,
+                            "Fecha aplicada": aplicada,
+                            "Institución": e.institution_name,
+                            "Tramo": str(e.tier_index + 1),
+                            "Cambio de tasa": cambio,
+                            "Origen": e.source or "—",
+                            "Nota": note or "—",
+                        }
+                    )
+                # All string cells: avoids Arrow/Vega column_config edge cases in the frontend.
+                st.table(pd.DataFrame(rows))
 
     st.title(t["title"])
     st.caption(t["caption"])
@@ -272,13 +298,13 @@ def main() -> None:
             st.cache_data.clear()
             st.session_state.reload_nonce = int(st.session_state.reload_nonce) + 1
             st.rerun()
+        from rate_allocator.persistence import get_database_url
+
         hint_db = os.environ.get(DB_URL_ENV, "")
         st.caption(
-            (
-                "Conexión: variable de entorno configurada ✓"
-                if hint_db
-                else "Conexión: solo YAML demo (sin `RATE_ALLOCATOR_DB_URL`)"
-            )
+            "Conexión: `RATE_ALLOCATOR_DB_URL` configurada ✓"
+            if hint_db
+            else f"Conexión: BD por defecto (`{get_database_url()}`) o YAML si no hay datos"
         )
 
         def _institution_option_label(n: str) -> str:
@@ -417,20 +443,21 @@ def main() -> None:
             ]
         )
         tbl = tbl.sort_values("Monto (MXN)", ascending=False).reset_index(drop=True)
-        st.dataframe(
-            tbl,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Monto (MXN)": st.column_config.NumberColumn(format="$%.0f"),
-                "Participación (%)": st.column_config.NumberColumn(format="%.1f %%"),
-                "Interés bruto (horizon.)": st.column_config.NumberColumn(format="$%.2f"),
-                "Comisiones": st.column_config.NumberColumn(format="$%.2f"),
-                "ISR (estim.)": st.column_config.NumberColumn(format="$%.2f"),
-                "Retención (estim.)": st.column_config.NumberColumn(format="$%.2f"),
-                "Contribución neta": st.column_config.NumberColumn(format="$%.2f"),
-            },
+        tbl_fmt = pd.DataFrame(
+            {
+                "Institución": tbl["Institución"],
+                "Monto (MXN)": tbl["Monto (MXN)"].map(lambda v: f"${v:,.0f}"),
+                "Participación (%)": tbl["Participación (%)"].map(lambda v: f"{v:.1f} %"),
+                "Interés bruto (horizon.)": tbl["Interés bruto (horizon.)"].map(
+                    lambda v: f"${v:,.2f}"
+                ),
+                "Comisiones": tbl["Comisiones"].map(lambda v: f"${v:,.2f}"),
+                "ISR (estim.)": tbl["ISR (estim.)"].map(lambda v: f"${v:,.2f}"),
+                "Retención (estim.)": tbl["Retención (estim.)"].map(lambda v: f"${v:,.2f}"),
+                "Contribución neta": tbl["Contribución neta"].map(lambda v: f"${v:,.2f}"),
+            }
         )
+        st.table(tbl_fmt)
 
     st.divider()
     st.subheader(t["detail_section"])
