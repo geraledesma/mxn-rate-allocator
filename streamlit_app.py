@@ -78,17 +78,25 @@ STRINGS = {
         "Historial SCD2 de la BD conectada (`RATE_ALLOCATOR_DB_URL` o SQLite por defecto). "
         f"Opcional: límite con `{NOTICIAS_LIMIT_ENV}=all|N`."
     ),
-    "noticias_empty": "No hay cambios de tasa registrados en la BD aún (o la BD está vacía).",
+    "noticias_empty": (
+        "La base de datos responde, pero **aún no hay cambios de tasa** en el historial SCD2 "
+        "(un solo nivel no genera «noticia»).\n\n"
+        "Ingeste de nuevo después de mover tasas o ejecute scripts como "
+        "`scripts/backfill_history_2026_05_08.py` según aplique."
+    ),
     "noticias_db_unavailable": (
         "No se pudo leer la base de datos (archivo ausente, esquema sin migrar o error de conexión). "
         "Configura `RATE_ALLOCATOR_DB_URL` o crea `data/rates.db` con `scripts/ingest_yaml.py`."
     ),
     "noticias_no_deps": (
-        "No hay motor SQL (p. ej. SQLAlchemy) en este despliegue y `data/noticias.yaml` "
-        "no tiene entradas o no existe. Añada dependencias o el archivo YAML de noticias."
+        "Este entorno **no tiene SQLAlchemy** (motor SQL), así que no se puede consultar "
+        "`RATE_ALLOCATOR_DB_URL`/`data/rates.db` para SCD2. Para Noticias reales desde la BD, "
+        "instala dependencias del proyecto (`requirements.txt`) o redespliega en Cloud incluyendo "
+        "este paquete con sus dependencias de persistencia."
     ),
-    "noticias_yaml_banner": (
-        "Mostrando `data/noticias.yaml`: la app no llegó al historial SCD2 (sin SQL/BD vacía/registro)."
+    "noticias_yaml_demo_no_sql": (
+        "**Sin motor SQL instalado.** Se muestran textos demo desde `data/noticias.yaml` "
+        "(no son el historial SCD2)."
     ),
     "noticias_yaml_after_db_error": (
         "No se pudo leer la base de datos. Se muestran las entradas de `data/noticias.yaml`."
@@ -102,7 +110,6 @@ STRINGS = {
         "Abajo, el informe detallado con tabla por tramo y gráficos matplotlib."
     ),
     "summary_box": "Métricas clave",
-    "metric_requested": "Monto solicitado",
     "metric_allocated": "Monto asignado",
     "metric_eff_rate": "Tasa efectiva (horizonte)",
     "metric_exp_return": "Rendimiento neto esperado",
@@ -115,11 +122,28 @@ STRINGS = {
 }
 
 
-def _dt_mx_label(dt: datetime) -> str:
-    """Format a DB timestamp for display in America/Mexico_City."""
+_MONTHS_ES = (
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+)
+
+
+def _effective_date_calendar_es(dt: datetime) -> str:
+    """Fecha civil en zona Ciudad de México («7 de mayo de 2026»)."""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(MX_ZONE).strftime("%Y-%m-%d %H:%M %Z")
+    d = dt.astimezone(MX_ZONE).date()
+    return f"{d.day} de {_MONTHS_ES[d.month - 1]} de {d.year}"
 
 
 def _today_mx_label() -> str:
@@ -164,19 +188,15 @@ def _paragraph_noticia_es(
     tier_label: str,
     old_rate: float,
     new_rate: float,
-    effective_mx: str,
-    applied_mx: str,
-    note: str | None,
+    effective_from_dt: datetime,
 ) -> str:
-    note_s = (note or "").strip()
-    body = (
-        f"{institution}, tramo {tier_label}: la tasa nominal pasó de "
-        f"{old_rate:.2%} a {new_rate:.2%}. Vigente desde {effective_mx}. "
-        f"Registro aplicado en el sistema: {applied_mx}."
+    old_pct = old_rate * 100.0
+    new_pct = new_rate * 100.0
+    cal_es = _effective_date_calendar_es(effective_from_dt)
+    return (
+        f"{institution} (Tramo {tier_label}): efectivo el {cal_es}, "
+        f"la tasa nominal se ajustó del {old_pct:.2f}% al {new_pct:.2f}%."
     )
-    if note_s and note_s != "—":
-        body += f" Nota: {note_s}."
-    return body
 
 
 def _try_load_db_snapshot(
@@ -219,9 +239,7 @@ def _noticias_paragraphs_db(events: list) -> list[str]:
             tier_label=str(e.tier_index + 1),
             old_rate=e.old_rate,
             new_rate=e.new_rate,
-            effective_mx=_dt_mx_label(e.effective_from),
-            applied_mx=_dt_mx_label(e.applied_at),
-            note=e.note,
+            effective_from_dt=e.effective_from,
         )
         for e in events
     ]
@@ -249,9 +267,7 @@ def _noticias_paragraphs_yaml(entries: list[YamlNoticiaEntry]) -> list[str]:
             tier_label=e.tier_display,
             old_rate=e.old_rate,
             new_rate=e.new_rate,
-            effective_mx=_dt_mx_label(e.effective_from),
-            applied_mx=_dt_mx_label(e.applied_at),
-            note=e.note,
+            effective_from_dt=e.effective_from,
         )
         for e in sorted_entries
     ]
@@ -357,6 +373,7 @@ def main() -> None:
         yaml_lines = _noticias_paragraphs_yaml(yaml_entries)
         db_lines: list[str] = []
         db_read_failed = False
+        db_hist_query_ok = False
         if _db_runtime_available():
             from rate_allocator.persistence import create_db_engine, session_scope
             from rate_allocator.persistence.history import load_recent_tier_rate_changes
@@ -368,6 +385,7 @@ def main() -> None:
                     events = load_recent_tier_rate_changes(
                         session, limit=_noticias_load_limit()
                     )
+                db_hist_query_ok = True
                 db_lines = _noticias_paragraphs_db(events)
             except SQLAlchemyError:
                 db_read_failed = True
@@ -375,16 +393,16 @@ def main() -> None:
         if db_lines:
             _render_noticias_markdown(db_lines)
             st.caption(t["noticias_from_db_footer"])
+        elif db_hist_query_ok:
+            st.info(t["noticias_empty"])
         elif db_read_failed and yaml_lines:
             st.warning(t["noticias_yaml_after_db_error"])
             _render_noticias_markdown(yaml_lines)
         elif db_read_failed:
             st.info(t["noticias_db_unavailable"])
         elif yaml_lines:
-            st.warning(t["noticias_yaml_banner"])
+            st.warning(t["noticias_yaml_demo_no_sql"])
             _render_noticias_markdown(yaml_lines)
-        elif _db_runtime_available() and not db_read_failed:
-            st.info(t["noticias_empty"])
         else:
             st.info(t["noticias_no_deps"])
 
@@ -484,13 +502,8 @@ def main() -> None:
 
     with st.container():
         st.markdown(f"##### {t['summary_box']}")
-        m1, m2, m3, m4 = st.columns(4)
+        m1, m2, m3 = st.columns(3)
         with m1:
-            st.metric(
-                label=t["metric_requested"],
-                value=f"{total:,.0f} MXN",
-            )
-        with m2:
             st.metric(
                 label=t["metric_allocated"],
                 value=f"{result.total_allocated:,.0f} MXN",
@@ -500,9 +513,9 @@ def main() -> None:
                     else None
                 ),
             )
-        with m3:
+        with m2:
             st.metric(label=t["metric_eff_rate"], value=f"{result.effective_rate:.2%}")
-        with m4:
+        with m3:
             st.metric(
                 label=t["metric_exp_return"],
                 value=f"${result.expected_return:,.0f}",
