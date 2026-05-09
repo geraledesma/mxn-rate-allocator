@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -71,8 +71,9 @@ STRINGS = {
     "reload": "Recargar datos",
     "noticias": "Noticias",
     "noticias_help": (
-        "Cambios de tasa desde el historial **SCD2** de la base de datos "
-        "(listado cronológico: **fecha de vigencia** más reciente primero)."
+        "Cambios de tasa desde el historial **SCD2**. **Vigencia** = día en que vale la nueva tasa "
+        "(``tier_versions.effective_from``); **Registro aplicado** = cuándo se grabó el lote "
+        "(``change_batches.applied_at``), diferente cuando el negocio adelanta o atrasa el registro."
     ),
     "noticias_from_db_footer": (
         "Historial SCD2 de la BD conectada (`RATE_ALLOCATOR_DB_URL` o SQLite por defecto). "
@@ -138,12 +139,28 @@ _MONTHS_ES = (
 )
 
 
-def _effective_date_calendar_es(dt: datetime) -> str:
-    """Fecha civil en zona Ciudad de México («7 de mayo de 2026»)."""
+def _date_to_calendar_es(d: date) -> str:
+    return f"{d.day} de {_MONTHS_ES[d.month - 1]} de {d.year}"
+
+
+def _vigencia_effective_calendar_date(dt: datetime) -> date:
+    """Día en que **vigencia la nueva tasa** (effective_from).
+
+    Los ``effective_from`` del modelo se guardan con sentido contractual en **UTC día
+    civil** (p. ej. ``2026-05-07T00:00:00Z`` ⇒ 7 mayo). Traducirlos sólo con
+    ``astimezone(CDMX).date()`` desplazaría ese instante al **30 abr**, que no es lo
+    buscado. Valores naive se interpretan como calendario Y-M-D explícitos.
+    """
+    if dt.tzinfo is None:
+        return date(dt.year, dt.month, dt.day)
+    return dt.astimezone(timezone.utc).date()
+
+
+def _registro_applied_calendar_date_mx(dt: datetime) -> date:
+    """Día civil observable en México para cuándo se **registró** el cambio."""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    d = dt.astimezone(MX_ZONE).date()
-    return f"{d.day} de {_MONTHS_ES[d.month - 1]} de {d.year}"
+    return dt.astimezone(MX_ZONE).date()
 
 
 def _today_mx_label() -> str:
@@ -189,12 +206,15 @@ def _paragraph_noticia_es(
     old_rate: float,
     new_rate: float,
     effective_from_dt: datetime,
+    applied_at_dt: datetime,
 ) -> str:
     old_pct = old_rate * 100.0
     new_pct = new_rate * 100.0
-    cal_es = _effective_date_calendar_es(effective_from_dt)
+    vig_txt = _date_to_calendar_es(_vigencia_effective_calendar_date(effective_from_dt))
+    reg_txt = _date_to_calendar_es(_registro_applied_calendar_date_mx(applied_at_dt))
     return (
-        f"{institution} (Tramo {tier_label}): efectivo el {cal_es}, "
+        f"{institution} (Tramo {tier_label}): efectivo el {vig_txt} (inicio de vigencia "
+        f"de la nueva tasa); registro aplicado el {reg_txt} (momento del lote); "
         f"la tasa nominal se ajustó del {old_pct:.2f}% al {new_pct:.2f}%."
     )
 
@@ -240,6 +260,7 @@ def _noticias_paragraphs_db(events: list) -> list[str]:
             old_rate=e.old_rate,
             new_rate=e.new_rate,
             effective_from_dt=e.effective_from,
+            applied_at_dt=e.applied_at,
         )
         for e in events
     ]
@@ -268,6 +289,7 @@ def _noticias_paragraphs_yaml(entries: list[YamlNoticiaEntry]) -> list[str]:
             old_rate=e.old_rate,
             new_rate=e.new_rate,
             effective_from_dt=e.effective_from,
+            applied_at_dt=e.applied_at,
         )
         for e in sorted_entries
     ]
