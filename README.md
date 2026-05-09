@@ -49,7 +49,7 @@ pip install -e .
 
 ## Interactive demo (Streamlit)
 
-Aligned with [`notebooks/demo_ipywidgets_es.ipynb`](notebooks/demo_ipywidgets_es.ipynb): **Spanish** sidebar and report (`locale="es"`), bundled sample institutions and rates, multiselect, total (**slider** plus **number input**, steps of 100), and **horizon** slider. The English notebook variant is [`notebooks/demo_ipywidgets_en.ipynb`](notebooks/demo_ipywidgets_en.ipynb).
+Aligned with [`notebooks/demo_ipywidgets_es.ipynb`](notebooks/demo_ipywidgets_es.ipynb): **Spanish** sidebar and report (`locale="es"`), bundled sample institutions and rates, multiselect, total (**slider** plus **number input**, steps of 100), and **horizon** slider. The main area adds a **panorama visual** (métricas `st.metric`, barras horizontales Altair por institución, tabla `st.dataframe` con desglose) before the HTML detallado con gráficos matplotlib. The English notebook variant is [`notebooks/demo_ipywidgets_en.ipynb`](notebooks/demo_ipywidgets_en.ipynb).
 
 ```bash
 pip install -e ".[streamlit]"
