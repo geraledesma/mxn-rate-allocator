@@ -27,8 +27,14 @@ from rate_allocator.workflows.interactive_report import (
 REPO_ROOT = Path(__file__).resolve().parent
 DATA_FILE = REPO_ROOT / "data" / "sample1.yaml"
 RULES_FILE = REPO_ROOT / "data" / "regulatory_rules.mx.yaml"
+DEFAULT_DB_FILE = REPO_ROOT / "data" / "rates.db"
 MX_ZONE = ZoneInfo("America/Mexico_City")
 DB_URL_ENV = "RATE_ALLOCATOR_DB_URL"
+
+
+def _resolve_database_url() -> str:
+    """Same resolution as ``rate_allocator.persistence.get_database_url`` without importing SQLAlchemy."""
+    return os.environ.get(DB_URL_ENV, f"sqlite:///{DEFAULT_DB_FILE}")
 
 TOTAL_MIN = 1
 TOTAL_MAX = 1_200_000
@@ -162,13 +168,12 @@ def _load_snapshot(
 ) -> tuple[list[Institution], RegulatoryRules, str, bool]:
     """Return (institutions, rules, source_key, explicit_db_url_in_env).
 
-    Uses ``RATE_ALLOCATOR_DB_URL`` when set; otherwise the default SQLite file
-    from ``get_database_url()`` (``data/rates.db`` relative to the package).
+    Uses ``RATE_ALLOCATOR_DB_URL`` when set; otherwise ``data/rates.db`` under
+    the app root. Does not import ``rate_allocator.persistence`` here so a
+    missing SQLAlchemy install still falls back to YAML via ``_try_load_db_snapshot``.
     """
-    from rate_allocator.persistence import get_database_url
-
     explicit_db_url_in_env = os.environ.get(DB_URL_ENV) is not None
-    db_url = get_database_url()
+    db_url = _resolve_database_url()
     db_snapshot = _try_load_db_snapshot(db_url)
     if db_snapshot is None:
         institutions = load_institutions_with_overrides(str(DATA_FILE), {})
@@ -249,14 +254,14 @@ def main() -> None:
         if not _db_runtime_available():
             st.info(t["noticias_no_deps"])
         else:
-            from rate_allocator.persistence import create_db_engine, get_database_url, session_scope
+            from rate_allocator.persistence import create_db_engine, session_scope
             from rate_allocator.persistence.history import load_recent_tier_rate_changes
             from sqlalchemy.exc import SQLAlchemyError
 
             events: list = []
             db_read_failed = False
             try:
-                engine = create_db_engine(get_database_url())
+                engine = create_db_engine(_resolve_database_url())
                 with session_scope(engine) as session:
                     events = load_recent_tier_rate_changes(session, limit=50)
             except SQLAlchemyError:
@@ -298,13 +303,11 @@ def main() -> None:
             st.cache_data.clear()
             st.session_state.reload_nonce = int(st.session_state.reload_nonce) + 1
             st.rerun()
-        from rate_allocator.persistence import get_database_url
-
         hint_db = os.environ.get(DB_URL_ENV, "")
         st.caption(
             "Conexión: `RATE_ALLOCATOR_DB_URL` configurada ✓"
             if hint_db
-            else f"Conexión: BD por defecto (`{get_database_url()}`) o YAML si no hay datos"
+            else f"Conexión: BD por defecto (`{_resolve_database_url()}`) o YAML si no hay datos"
         )
 
         def _institution_option_label(n: str) -> str:
