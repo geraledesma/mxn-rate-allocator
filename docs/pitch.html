@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rate Allocator — Pitch</title>
+<style>
+  :root {
+    --green:  #00c37a;
+    --dark:   #0d1117;
+    --card:   #161b22;
+    --border: #30363d;
+    --text:   #e6edf3;
+    --muted:  #8b949e;
+    --accent: #58a6ff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--dark);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* ── Navigation ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem; height: 56px;
+    background: rgba(13,17,23,.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  nav .logo { font-weight: 700; font-size: 1.1rem; color: var(--green); letter-spacing: .5px; }
+  nav ul { list-style: none; display: flex; gap: 1.6rem; }
+  nav ul a { color: var(--muted); text-decoration: none; font-size: .85rem; transition: color .2s; }
+  nav ul a:hover { color: var(--text); }
+
+  /* ── Sections ── */
+  section { padding: 100px 2rem 80px; max-width: 1000px; margin: 0 auto; }
+  section:first-of-type { padding-top: 140px; }
+
+  h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800; line-height: 1.15; }
+  h2 { font-size: 1.75rem; font-weight: 700; margin-bottom: 1.2rem; }
+  h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: .5rem; color: var(--text); }
+  p  { color: var(--muted); margin-bottom: 1rem; }
+
+  .tag {
+    display: inline-block; padding: 4px 12px; border-radius: 20px;
+    font-size: .78rem; font-weight: 600; letter-spacing: .4px;
+    background: rgba(0,195,122,.12); color: var(--green);
+    border: 1px solid rgba(0,195,122,.3);
+    margin-bottom: 1.2rem;
+  }
+
+  .hero-sub {
+    font-size: 1.15rem; color: var(--muted);
+    max-width: 600px; margin: 1rem 0 2.2rem;
+  }
+
+  .btn {
+    display: inline-block; padding: 13px 28px; border-radius: 8px;
+    font-size: .95rem; font-weight: 600; text-decoration: none;
+    transition: opacity .2s, transform .15s;
+  }
+  .btn:hover { opacity: .88; transform: translateY(-1px); }
+  .btn-primary { background: var(--green); color: #000; }
+  .btn-outline  {
+    border: 1px solid var(--border); color: var(--text);
+    background: transparent; margin-left: .8rem;
+  }
+
+  /* ── Cards ── */
+  .grid { display: grid; gap: 1.2rem; }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.6rem;
+    transition: border-color .2s, transform .2s;
+  }
+  .card:hover { border-color: var(--green); transform: translateY(-3px); }
+
+  .card-icon {
+    font-size: 1.8rem; margin-bottom: .8rem; display: block;
+  }
+
+  /* ── Stat boxes ── */
+  .stats { display: flex; flex-wrap: wrap; gap: 1rem; margin: 2rem 0; }
+  .stat {
+    flex: 1 1 160px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    text-align: center;
+  }
+  .stat .num { font-size: 2rem; font-weight: 800; color: var(--green); }
+  .stat .lbl { font-size: .8rem; color: var(--muted); margin-top: .2rem; }
+
+  /* ── Revenue table ── */
+  .revenue-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem; margin-top: 1.5rem;
+  }
+  .rev-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.4rem;
+  }
+  .rev-card .model { font-size: .78rem; color: var(--green); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: .4rem; }
+  .rev-card h3 { font-size: 1rem; margin-bottom: .3rem; }
+  .rev-card p { font-size: .85rem; }
+
+  /* ── Funnel ── */
+  .funnel { display: flex; flex-direction: column; gap: .6rem; margin-top: 1.5rem; }
+  .funnel-step {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.4rem;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .funnel-step .step-n {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--green); color: #000;
+    font-weight: 800; font-size: .85rem;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+
+  /* ── Divider ── */
+  .section-divider {
+    border: none; border-top: 1px solid var(--border);
+    max-width: 1000px; margin: 0 auto;
+  }
+
+  /* ── CTA ── */
+  #cta {
+    text-align: center;
+    padding: 100px 2rem;
+  }
+  #cta h2 { font-size: 2rem; }
+  #cta p  { max-width: 520px; margin: 1rem auto 2rem; }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center;
+    padding: 2rem;
+    font-size: .8rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── Tier table ── */
+  .tier-table { width: 100%; border-collapse: collapse; margin-top: 1.4rem; font-size: .88rem; }
+  .tier-table th {
+    text-align: left; padding: .6rem 1rem;
+    background: rgba(255,255,255,.04);
+    color: var(--muted); font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .tier-table td { padding: .55rem 1rem; border-bottom: 1px solid rgba(48,54,61,.6); color: var(--text); }
+  .tier-table tr:last-child td { border-bottom: none; }
+  .tier-table .rate-high { color: var(--green); font-weight: 700; }
+  .tier-table .rate-mid  { color: #e3b341; font-weight: 600; }
+  .tier-table .rate-low  { color: #f85149; font-weight: 600; }
+  .tier-table .inst { font-weight: 600; }
+  .tier-table .badge {
+    display: inline-block; font-size: .7rem; padding: 1px 7px; border-radius: 10px;
+    margin-left: 6px; vertical-align: middle;
+  }
+  .badge-sofipo { background: rgba(88,166,255,.15); color: var(--accent); border: 1px solid rgba(88,166,255,.3); }
+  .badge-banco  { background: rgba(163,113,247,.15); color: #a371f7;    border: 1px solid rgba(163,113,247,.3); }
+  .tier-table .note { font-size: .76rem; color: var(--muted); }
+
+  /* ── Comparison box ── */
+  .compare-wrap {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.6rem;
+  }
+  @media (max-width: 600px) { .compare-wrap { grid-template-columns: 1fr; } }
+  .compare-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.4rem;
+  }
+  .compare-box.bad  { border-color: rgba(248,81,73,.4); }
+  .compare-box.good { border-color: rgba(0,195,122,.4); }
+  .compare-box .label {
+    font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    margin-bottom: .8rem;
+  }
+  .compare-box.bad  .label { color: #f85149; }
+  .compare-box.good .label { color: var(--green); }
+  .compare-box .amount { font-size: 1.9rem; font-weight: 800; margin-bottom: .3rem; }
+  .compare-box.bad  .amount { color: #f85149; }
+  .compare-box.good .amount { color: var(--green); }
+  .compare-box .sub { font-size: .82rem; color: var(--muted); }
+  .compare-box .breakdown { margin-top: .9rem; }
+  .compare-box .breakdown li {
+    font-size: .82rem; color: var(--muted);
+    list-style: none; padding: .25rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .compare-box .breakdown li span { float: right; color: var(--text); font-weight: 600; }
+  .compare-delta {
+    text-align: center; padding: 1rem;
+    background: rgba(0,195,122,.08); border: 1px solid rgba(0,195,122,.2);
+    border-radius: 10px; margin-top: 1rem;
+  }
+  .compare-delta strong { color: var(--green); font-size: 1.2rem; }
+
+  /* ── Highlight span ── */
+  .hl { color: var(--green); }
+  .hl-blue { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="logo">Rate Allocator MX</span>
+  <ul>
+    <li><a href="#problema">Problema</a></li>
+    <li><a href="#producto">Producto</a></li>
+    <li><a href="#mercado">Mercado</a></li>
+    <li><a href="#monetizacion">Monetización</a></li>
+    <li><a href="#hoja-de-ruta">Roadmap</a></li>
+    <li><a href="#cta">Contacto</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <span class="tag">Fintech · Ahorro · México</span>
+  <h1>Maximiza tu rendimiento<br><span class="hl">sin mover un dedo.</span></h1>
+  <p class="hero-sub">
+    Rate Allocator distribuye tu dinero de forma óptima entre bancos y SOFIPOs mexicanos para que
+    obtengas el mayor rendimiento real posible, con cobertura IPAB/Prosofipo y sin estrés fiscal.
+  </p>
+  <a href="#producto" class="btn btn-primary">Ver el producto</a>
+  <a href="#monetizacion" class="btn btn-outline">Ver modelo de negocio</a>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="num">40 M+</div>
+      <div class="lbl">mexicanos con cuenta de ahorro</div>
+    </div>
+    <div class="stat">
+      <div class="num">&lt; 5%</div>
+      <div class="lbl">comparan tasas activamente</div>
+    </div>
+    <div class="stat">
+      <div class="num">3–8 pp</div>
+      <div class="lbl">diferencial de tasa entre instituciones</div>
+    </div>
+    <div class="stat">
+      <div class="num">0</div>
+      <div class="lbl">herramientas de optimización gratuitas</div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- PROBLEMA -->
+<section id="problema">
+  <span class="tag">El problema</span>
+  <h2>Dejar dinero sobre la mesa<br>es el deporte nacional.</h2>
+  <p>
+    Las tasas de referencia alcanzaron máximos históricos (11%+), pero la mayoría de los ahorradores
+    mexicanos guarda su dinero en instituciones que pagan 2–4% porque comparar las opciones
+    disponibles es genuinamente difícil: cada institución tiene tramos, condiciones y topes distintos.
+  </p>
+
+  <!-- Tier complexity table -->
+  <table class="tier-table">
+    <thead>
+      <tr>
+        <th>Institución</th>
+        <th>Tramo 1</th>
+        <th>Tramo 2</th>
+        <th>Tramo 3</th>
+        <th>Condición</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="inst">Revolut <span class="badge badge-banco">Banco</span></td>
+        <td class="rate-high">15% hasta $25 k</td>
+        <td class="rate-mid">7.25% hasta $1 M</td>
+        <td class="rate-low">5% resto</td>
+        <td class="note">—</td>
+      </tr>
+      <tr>
+        <td class="inst">Didi Cuenta <span class="badge badge-sofipo">SOFIPO</span></td>
+        <td class="rate-high">15% hasta $10 k</td>
+        <td class="rate-mid">7.5% resto</td>
+        <td>—</td>
+        <td class="note">—</td>
+      </tr>
+      <tr>
+        <td class="inst">NU <span class="badge badge-sofipo">SOFIPO</span></td>
+        <td class="rate-high">13% hasta $25 k</td>
+        <td class="rate-mid">6.75% resto</td>
+        <td>—</td>
+        <td class="note">Cajita Turbo: 1 compra/mes</td>
+      </tr>
+      <tr>
+        <td class="inst">Openbank <span class="badge badge-banco">Banco</span></td>
+        <td class="rate-high">13% hasta $40 k</td>
+        <td class="rate-mid">7.3% hasta $1 M</td>
+        <td class="rate-low">7% resto</td>
+        <td class="note">—</td>
+      </tr>
+      <tr>
+        <td class="inst">Mercado Pago</td>
+        <td class="rate-high">13% hasta $25 k</td>
+        <td class="rate-low">0% resto</td>
+        <td>—</td>
+        <td class="note">Requiere depositar $3,000/mes</td>
+      </tr>
+      <tr>
+        <td class="inst">Mifel (digital) <span class="badge badge-banco">Banco</span></td>
+        <td class="rate-mid">10% hasta $500 k</td>
+        <td class="rate-low">0% resto</td>
+        <td>—</td>
+        <td class="note">Mínimo $100 para desbloquear</td>
+      </tr>
+      <tr>
+        <td class="inst">Plata Ahorro Plus <span class="badge badge-banco">Banco</span></td>
+        <td class="rate-mid">12% sin tope</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="note">Membresía $99 + IVA / mes</td>
+      </tr>
+      <tr>
+        <td class="inst">Capital ACTIVO <span class="badge badge-sofipo">SOFIPO</span></td>
+        <td class="rate-low">1.5% sin tope</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="note">—</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="grid grid-3" style="margin-top:1.8rem;">
+    <div class="card">
+      <span class="card-icon">😵</span>
+      <h3>Tasas que se despeñan</h3>
+      <p>Revolut paga 15% en los primeros $25,000 MXN, pero apenas 5% en el resto. Quien no lo sabe pone $200,000 y recibe una tasa efectiva del 6%, no del 15%.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon">🧮</span>
+      <h3>Condiciones ocultas</h3>
+      <p>Mercado Pago exige depositar $3,000 al mes para activar el 13%. NU requiere una compra mensual. Plata Plus cobra $114.84/mes de membresía. Ningún comparador las cruza.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon">📉</span>
+      <h3>Inflación silenciosa</h3>
+      <p>Con inflación ~4.5%, Capital ACTIVO (1.5%) o Klar (3%) te hacen perder poder adquisitivo. El usuario promedio no lo calcula.</p>
+    </div>
+  </div>
+
+  <!-- Concrete optimization example -->
+  <h3 style="margin-top:2.2rem; font-size:1.2rem;">Ejemplo real: $200,000 MXN a 1 año</h3>
+  <p>¿Qué pasa si metes todo en una sola cuenta vs. dejar que el algoritmo lo distribuya?</p>
+
+  <div class="compare-wrap">
+    <div class="compare-box bad">
+      <div class="label">Sin optimizar — todo en NU</div>
+      <div class="amount">$15,062</div>
+      <div class="sub">Tasa efectiva: 7.53% anual</div>
+      <ul class="breakdown">
+        <li>$25,000 al 13% (Cajita Turbo) <span>$3,250</span></li>
+        <li>$175,000 al 6.75% (tasa base) <span>$11,812</span></li>
+        <li>Cobertura Prosofipo usada <span>$200k / 208k</span></li>
+      </ul>
+    </div>
+    <div class="compare-box good">
+      <div class="label">Optimizado — 5 instituciones</div>
+      <div class="amount">$23,700</div>
+      <div class="sub">Tasa efectiva: 11.85% anual</div>
+      <ul class="breakdown">
+        <li>Revolut $25k al 15% <span>$3,750</span></li>
+        <li>Didi $10k al 15% <span>$1,500</span></li>
+        <li>NU $25k al 13% <span>$3,250</span></li>
+        <li>Openbank $40k al 13% <span>$5,200</span></li>
+        <li>Mifel $100k al 10% <span>$10,000</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="compare-delta">
+    La optimización genera <strong>$8,638 MXN más al año</strong> sobre la misma inversión —
+    sin riesgo adicional y con cobertura institucional en cada cuenta.
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- PRODUCTO -->
+<section id="producto">
+  <span class="tag">El producto</span>
+  <h2>Una calculadora que <span class="hl">piensa</span><br>por ti.</h2>
+  <p>
+    Ingresa cuánto quieres invertir y en cuánto tiempo necesitas tu dinero.
+    El algoritmo de optimización (MILP) distribuye tu capital entre las instituciones disponibles
+    para maximizar tu rendimiento efectivo neto de impuestos y comisiones.
+  </p>
+
+  <div class="grid grid-2" style="margin-top:1.8rem;">
+    <div class="card">
+      <span class="card-icon">⚡</span>
+      <h3>Optimización en segundos</h3>
+      <p>Programación lineal entera que evalúa miles de combinaciones de instituciones, tramos de tasa y plazos simultáneamente.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon">🛡️</span>
+      <h3>Cobertura garantizada</h3>
+      <p>Respeta límites IPAB (3.3 M MXN/banco) y Prosofipo (208 k MXN/SOFIPO) para que ningún peso quede sin asegurar.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon">🧾</span>
+      <h3>Neto de ISR real</h3>
+      <p>Descuenta retención de ISR (0.9% anual) e inflación para mostrarte el rendimiento que realmente te llega al bolsillo.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon">📊</span>
+      <h3>Histórico de tasas</h3>
+      <p>Registro SCD2 de cambios de tasa; identifica instituciones que suben o bajan su oferta y anticipa movimientos del mercado.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon">🔔</span>
+      <h3>Alertas de cambio</h3>
+      <p><span class="hl-blue">[Roadmap]</span> Notificaciones cuando una institución modifica su tasa y afecta tu portafolio actual.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon">📱</span>
+      <h3>Reporte descargable</h3>
+      <p>PDF/HTML con el desglose de tu asignación óptima, rendimiento esperado y pasos para abrir cada cuenta.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- MERCADO -->
+<section id="mercado">
+  <span class="tag">Mercado objetivo</span>
+  <h2>Un mercado enorme y<br><span class="hl">sin explotar.</span></h2>
+
+  <div class="grid grid-3" style="margin-top:1.8rem;">
+    <div class="card">
+      <span class="card-icon">👨‍💼</span>
+      <h3>Ahorradores activos</h3>
+      <p>Personas con 50 k–3 M MXN en liquidez buscando superar a CETES sin complicaciones burocráticas.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon">🏢</span>
+      <h3>Tesorería PyME</h3>
+      <p>Empresas con capital de trabajo ocioso que hoy tienen su dinero en cuentas de cheques al 0%.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon">🎓</span>
+      <h3>Finanzas personales</h3>
+      <p>Usuarios de comunidades como r/MexicoFinanciero y Fintualeros que ya conocen el concepto pero carecen de la herramienta.</p>
+    </div>
+  </div>
+
+  <div class="stats" style="margin-top:1.6rem;">
+    <div class="stat">
+      <div class="num">~6 M</div>
+      <div class="lbl">SAM estimado (ahorradores digitales activos)</div>
+    </div>
+    <div class="stat">
+      <div class="num">120 k+</div>
+      <div class="lbl">SOM año 1 (usuarios registrados)</div>
+    </div>
+    <div class="stat">
+      <div class="num">$480 M</div>
+      <div class="lbl">MXN en AUM potencialmente redirigido</div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- MONETIZACIÓN -->
+<section id="monetizacion">
+  <span class="tag">Modelo de negocio</span>
+  <h2>Cinco fuentes de ingreso<br><span class="hl">complementarias.</span></h2>
+  <p>La plataforma es gratis para el usuario básico; los ingresos provienen de capas de valor adicional, publicidad contextual y partnerships con las propias instituciones.</p>
+
+  <div class="revenue-grid">
+    <div class="rev-card">
+      <div class="model">Freemium</div>
+      <h3>Plan Premium</h3>
+      <p>$99–$199 MXN/mes para cálculos ilimitados, alertas automáticas, historial completo y exportaciones en PDF.</p>
+    </div>
+    <div class="rev-card">
+      <div class="model">Afiliados</div>
+      <h3>Referidos a instituciones</h3>
+      <p>Comisión CPA de $200–$800 MXN por cada cuenta abierta vía enlace de afiliado (bancos y SOFIPOs ya tienen programas activos).</p>
+    </div>
+    <div class="rev-card">
+      <div class="model">B2B SaaS</div>
+      <h3>API para asesores</h3>
+      <p>Licencia mensual para planificadores financieros, fintech y apps de ahorro que quieran integrar el motor de optimización.</p>
+    </div>
+    <div class="rev-card">
+      <div class="model">Datos</div>
+      <h3>Inteligencia de mercado</h3>
+      <p>Reportes agregados de tendencias de tasas para analistas, medios financieros e instituciones que quieren benchmarking.</p>
+    </div>
+    <div class="rev-card">
+      <div class="model">Publicidad</div>
+      <h3>Ads contextual</h3>
+      <p>Display ads de Google AdSense y espacios patrocinados para instituciones financieras. CPM alto gracias a una audiencia con alta intención de inversión — el perfil más valioso para bancos y SOFIPOs.</p>
+    </div>
+  </div>
+
+  <div style="margin-top:1.4rem; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:1.2rem 1.4rem;">
+    <h3 style="margin-bottom:.6rem; font-size:.95rem;">¿Por qué los ads funcionan aquí?</h3>
+    <p style="font-size:.85rem; margin-bottom:.5rem;">
+      Un usuario que compara tasas de ahorro tiene <strong style="color:var(--text)">alta intención de producto financiero</strong> —
+      el mismo perfil que los bancos buscan en Google Ads a $80–$200 MXN por click.
+      Nosotros los capturamos cuando ya están en el proceso de decisión.
+    </p>
+    <p style="font-size:.85rem; margin:0;">
+      <span class="hl">Formatos planeados:</span> banner estándar (AdSense), tarjeta "Institución destacada" (patrocinio directo con la SOFIPO/banco),
+      y newsletter semanal de tasas con slot de anunciante único.
+    </p>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- VENTAJAS -->
+<section id="ventajas">
+  <span class="tag">Por qué ganamos</span>
+  <h2>Barreras de entrada<br><span class="hl">reales.</span></h2>
+  <div class="grid grid-3">
+    <div class="card">
+      <span class="card-icon">🧠</span>
+      <h3>Motor propietario</h3>
+      <p>Algoritmo MILP calibrado para el marco regulatorio mexicano (IPAB, Prosofipo, ISR) que no existe en ningún comparador genérico.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon">🗃️</span>
+      <h3>Base de datos histórica</h3>
+      <p>Cada cambio de tasa queda registrado con SCD2; tras 12 meses, esto es un activo de datos que los competidores no pueden replicar rápido.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon">🤝</span>
+      <h3>Efecto red</h3>
+      <p>Más usuarios → más clicks en afiliados → mejores condiciones con instituciones → mejores tasas exclusivas en la plataforma.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- HOJA DE RUTA -->
+<section id="hoja-de-ruta">
+  <span class="tag">Roadmap</span>
+  <h2>De MVP a plataforma<br><span class="hl">en 18 meses.</span></h2>
+
+  <div class="funnel" style="margin-top:1.5rem;">
+    <div class="funnel-step">
+      <div class="step-n">1</div>
+      <div>
+        <h3>Q3 2026 — Lanzamiento público</h3>
+        <p>Sitio web con calculadora gratuita, SEO orientado a keywords de alto volumen ("mejor tasa ahorro México"), primeros afiliados.</p>
+      </div>
+    </div>
+    <div class="funnel-step">
+      <div class="step-n">2</div>
+      <div>
+        <h3>Q4 2026 — Plan Premium + alertas</h3>
+        <p>Suscripción mensual, notificaciones push/email de cambios de tasa, dashboard personalizado con histórico de portafolio.</p>
+      </div>
+    </div>
+    <div class="funnel-step">
+      <div class="step-n">3</div>
+      <div>
+        <h3>Q1 2027 — API B2B</h3>
+        <p>Documentación pública, sandbox y facturación automática para clientes institucionales. Primer piloto con fintech o app de nómina.</p>
+      </div>
+    </div>
+    <div class="funnel-step">
+      <div class="step-n">4</div>
+      <div>
+        <h3>Q2–Q3 2027 — Expansión de producto</h3>
+        <p>Integración de CETES Directo, fondos de deuda y pagarés bursátiles. Simulador de portafolio de liquidez completo.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- CTA -->
+<section id="cta">
+  <span class="tag">¿Te interesa?</span>
+  <h2>Construyamos juntos la<br><span class="hl">infraestructura de ahorro</span> de México.</h2>
+  <p>
+    Ya tenemos el motor funcional, datos de más de 70 instituciones y un prototipo en producción.
+    Buscamos co-fundadores, inversores ángel o primeros clientes B2B.
+  </p>
+  <a href="mailto:gera.ledesma.ramos@gmail.com" class="btn btn-primary">Escríbenos</a>
+  <a href="https://rate-allocator-4mhzzryvjevndl5wnh9dqx.streamlit.app/" target="_blank" class="btn btn-outline">Ver demo en vivo</a>
+</section>
+
+<footer>
+  &copy; 2026 Rate Allocator MX &mdash; Construido con datos reales, optimización real.
+</footer>
+
+</body>
+</html>
