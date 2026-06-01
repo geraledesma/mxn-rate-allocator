@@ -1,5 +1,0 @@
-"""Backward-compatible allocator entrypoint."""
-
-from rate_allocator.core.optimizer.solve import allocate
-
-__all__ = ["allocate"]
