@@ -62,11 +62,32 @@ pip install -e ".[streamlit]"
 streamlit run streamlit_app.py
 ```
 
-The UI is in Spanish. Reads rates from SQLite (`data/rates.db`); to regenerate the database after editing the YAML:
+The UI is in Spanish. Reads rates from SQLite (`data/rates.db`); to seed the database:
 
 ```bash
-python3 scripts/seed_rates_sqlite.py --yaml data/sample1.yaml --db data/rates.db
+pip install -e ".[streamlit]"
+rate-seed --yaml data/sample1.yaml --db data/rates.db
+RATE_ALLOCATOR_DB_URL="sqlite:///$(pwd)/data/rates.db" streamlit run streamlit_app.py
 ```
+
+## CLI Commands
+
+After `pip install -e .`, three commands are available:
+
+| Command | Purpose |
+|---------|---------|
+| `rate-scrape` | Scrape current rates from tasas.mx → `data/scraped_live.yaml` |
+| `rate-ingest <file.yaml>` | Ingest institutions or regulatory rules into the SCD2 database |
+| `rate-seed --yaml <file> --db <db>` | Seed a fresh SQLite database from a YAML snapshot |
+
+```bash
+# Full update cycle
+rate-scrape --output data/scraped_live.yaml
+RATE_ALLOCATOR_DB_URL="sqlite:///$(pwd)/data/rates.db" rate-ingest data/scraped_live.yaml
+RATE_ALLOCATOR_DB_URL="sqlite:///$(pwd)/data/rates.db" rate-ingest data/manual_additions.yaml
+```
+
+See `scripts/commands/update-rates.md` for the full update workflow.
 
 ## Running Tests
 
@@ -86,13 +107,26 @@ See `docs/assumptions.md` for full model specifications.
 
 ## Project Layout
 
-| Path | Purpose |
-|------|---------|
-| `src/rate_allocator/domain/` | Entities (`Institution`, `Tier`, `Constraint`, `AllocationResult`) |
-| `src/rate_allocator/core/optimizer/` | `allocate()` — MILP engine |
-| `src/rate_allocator/core/finance/` | Rates, costs, taxes |
-| `src/rate_allocator/adapters/` | YAML and regulatory rules loaders |
-| `src/rate_allocator/reporting/` | Summaries and charts |
-| `src/rate_allocator/workflows/` | `summarize_and_plot`, `build_interactive_report_html` |
-| `data/*.yaml` | Sample institutions and MX regulatory rules |
-| `streamlit_app.py` | Public demo entrypoint |
+```
+src/rate_allocator/
+├── cli/            rate-scrape, rate-ingest, rate-seed entry points
+├── domain/         Institution, Tier, Constraint, AllocationResult, RegulatoryRules
+├── core/
+│   ├── optimizer/  allocate() — MILP engine (SciPy)
+│   └── finance/    rates, costs, taxes, ISR
+├── adapters/       YAML, DB, and regulatory rules loaders
+├── persistence/    SQLAlchemy ORM, SCD2 ingest, migration (Alembic)
+├── reporting/      summaries, charts
+└── workflows/      summarize_and_plot, build_interactive_report_html
+
+data/
+├── sample1.yaml              primary sample (app + tests)
+├── sample_comprehensive.yaml 20-institution dataset (extended tests)
+├── manual_additions.yaml     institutions not on tasas.mx (PlataCard, Mifel)
+├── noticias.yaml             curated rate-change history
+└── regulatory_rules.mx.yaml  IPAB / Prosofipo coverage limits
+
+scripts/commands/update-rates.md   /update-rates skill for Claude Code CLI
+notebooks/demo_ipywidgets_es.ipynb interactive Spanish demo
+streamlit_app.py                   public Streamlit demo entrypoint
+```
