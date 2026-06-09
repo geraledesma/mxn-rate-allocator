@@ -17,6 +17,11 @@ dependencies = [
     "alembic>=1.13",
 ]
 
+[project.scripts]
+rate-scrape = "rate_allocator.cli.scrape:main"
+rate-ingest = "rate_allocator.cli.ingest:main"
+rate-seed   = "rate_allocator.cli.seed:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
