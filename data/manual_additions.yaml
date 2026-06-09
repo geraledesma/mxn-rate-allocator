@@ -1,0 +1,24 @@
+# Institutions not listed on tasas.mx — manually curated.
+# Rates verified from institution pages/app UI; update as needed.
+institutions:
+  - name: PlataCard
+    institution_type: banco
+    tiers:
+      - limit: .inf
+        rate: 0.10
+        constraints:
+          - type: monthly_expense
+            cost: 114.84  # $99 + IVA/mes membresía
+            benefit: membership_plan
+            condition_value: 114.84
+            active: true
+
+  - name: Mifel
+    institution_type: banco
+    tiers:
+      - limit: 99.99       # below $100 earns nothing
+        rate: 0.0
+      - limit: 500_000     # 10% up to $500k — source: T&C PDF Jun 2026
+        rate: 0.10
+      - limit: .inf
+        rate: 0.0001       # 0.01% above $500k
