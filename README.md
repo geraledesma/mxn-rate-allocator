@@ -1,18 +1,23 @@
-# Rate Allocator
+# MXN Rate Allocator
 
-Optimal cash allocation across SOFIPOs and Mexican banks with tiered interest rates.
+Distribución óptima de capital entre bancos y SOFIPOs mexicanos para maximizar el rendimiento real — neto de ISR e inflación, con cobertura IPAB/Prosofipo garantizada.
 
-## The Problem
+## Por qué existe este proyecto
 
-Given:
-- A total amount of cash to invest
-- A list of financial institutions, each offering different interest rates for different deposit tiers
-- Tier limits (e.g., "first 25,000 MXN at 15%, next 225,000 at 12%, rest at 10%")
-- Sequential tier access (must fill lower tiers before accessing higher ones)
+La inclusión financiera es uno de los problemas más serios de México. No solo afecta las finanzas personales de los ciudadanos — tiene un efecto multiplicador directo sobre la calidad de vida, el acceso al crédito, el crecimiento de negocios pequeños y, en consecuencia, la generación de empleo y el desarrollo económico del país.
 
-Find:
-- The allocation that maximizes expected return while respecting all constraints
-- Among allocations tied on that objective, one that uses the fewest institutions (fewer accounts to open), via a very small extra cost per open institution in the same MILP
+En el centro de ese problema está la educación financiera: es muy pobre, y eso tiene consecuencias concretas. La mayoría de los ahorradores mexicanos deja su dinero en cuentas que pagan 2–4% cuando existen opciones reguladas y seguras que pagan 10–15% — no por falta de interés, sino porque comparar las opciones es genuinamente difícil.
+
+Este proyecto existe para reducir esa brecha. La herramienta es gratuita, está en español, y está diseñada para que cualquier persona — sin conocimientos financieros previos — pueda tomar una decisión de ahorro informada y segura.
+
+## Qué hace
+
+Dado un monto a invertir, el algoritmo distribuye el capital entre las instituciones disponibles para:
+
+- Maximizar el rendimiento efectivo neto de impuestos y comisiones
+- Respetar los límites de cobertura IPAB (3.3 M MXN/banco) y Prosofipo (208 k MXN/SOFIPO)
+- Minimizar el número de cuentas necesarias cuando el rendimiento es equivalente
+- Considerar condiciones específicas por institución (membresías, depósitos mínimos, etc.)
 
 ## Quick Start
 
@@ -48,35 +53,20 @@ print(f"Effective rate: {result.effective_rate:.2%}")
 pip install -e .
 ```
 
-## Interactive demo (Streamlit)
+## Demo interactivo (Streamlit)
 
-Aligned with [`notebooks/demo_ipywidgets_es.ipynb`](notebooks/demo_ipywidgets_es.ipynb): **Spanish** sidebar and report (`locale="es"`), multiselect, total (**slider** plus **number input**, steps of 100), and **horizon** slider. The demo reads **rates from SQLite (`data/rates.db`)**, not YAML at runtime; the checked-in DB snapshot matches [`data/sample1.yaml`](data/sample1.yaml).
-
-The main area adds a **panorama visual** (`st.metric`, barras Altair por institución, `st.dataframe` con desglose) before the HTML detallado con gráficos matplotlib. The English notebook variant is [`notebooks/demo_ipywidgets_en.ipynb`](notebooks/demo_ipywidgets_en.ipynb).
-
-Regenerate the DB after editing YAML (local path defaults shown):
-
-```bash
-python3 scripts/seed_rates_sqlite.py --yaml data/sample1.yaml --db data/rates.db
-```
-
-Override the DB path in deployment with env **`RATE_ALLOCATOR_SQLITE`** or a Streamlit secret of the same name.
+**Live demo:** [https://rate-allocator-4mhzzryvjevndl5wnh9dqx.streamlit.app/](https://rate-allocator-4mhzzryvjevndl5wnh9dqx.streamlit.app/)
 
 ```bash
 pip install -e ".[streamlit]"
 streamlit run streamlit_app.py
 ```
 
-**Source repository:** [github.com/geraledesma/rate-allocator](https://github.com/geraledesma/rate-allocator)
+La UI está en español. Lee tasas desde SQLite (`data/rates.db`); para regenerar la base después de editar el YAML:
 
-### Publish on Streamlit Community Cloud (one-time)
-
-1. Open [Streamlit Community Cloud](https://streamlit.io/cloud) and sign in with GitHub.
-2. **New app** → pick repository **`geraledesma/rate-allocator`**, branch **`main`**, main file **`streamlit_app.py`**.
-3. Leave **App URL** as default or customize; wait for the build to finish (uses root [`requirements.txt`](requirements.txt)).
-4. If the URL changes after redeploy, update the **Live demo** link below and push this README.
-
-**Live demo:** [https://rate-allocator-4mhzzryvjevndl5wnh9dqx.streamlit.app/](https://rate-allocator-4mhzzryvjevndl5wnh9dqx.streamlit.app/)
+```bash
+python3 scripts/seed_rates_sqlite.py --yaml data/sample1.yaml --db data/rates.db
+```
 
 ## Running Tests
 
@@ -86,24 +76,23 @@ pytest tests/
 
 ## How It Works
 
-The allocator uses linear programming (scipy.optimize.linprog) with:
-- **Variables**: Cumulative amount per tier per institution
-- **Objective**: Maximize total interest earned
-- **Constraints**:
-  - Budget: All money allocated
-  - Limits: Respect tier caps
-  - Monotonicity: Sequential tier filling
+El optimizador usa programación lineal entera mixta (MILP) con SciPy:
 
-See `docs/assumptions.md` for detailed model specifications.
+- **Variables:** monto acumulado por tramo por institución
+- **Objetivo:** maximizar el interés total generado
+- **Restricciones:** presupuesto total, límites por tramo, llenado secuencial de tramos, cobertura institucional
 
-## Notebook And HTTP Readiness
+Ver `docs/assumptions.md` para las especificaciones completas del modelo.
 
-The notebook UI now delegates result rendering to `rate_allocator.workflows.interactive_report`.
-That workflow takes `AllocationResult + institutions + total` and returns an HTML fragment that
-contains summary, tranche table, fee notes, and chart images.
+## Project Layout
 
-This separation makes HTTP mounting feasible without notebook-specific code:
-
-- **Streamlit:** `streamlit_app.py` calls `allocate` and `build_interactive_report_html` (see above).
-- API route: compute `allocate(...)`, then return JSON plus optional report HTML.
-- Server-rendered page: compute `allocate(...)`, then inject report HTML in a template.
+| Path | Purpose |
+|------|---------|
+| `src/rate_allocator/domain/` | Entidades (`Institution`, `Tier`, `Constraint`, `AllocationResult`) |
+| `src/rate_allocator/core/optimizer/` | `allocate()` — motor MILP |
+| `src/rate_allocator/core/finance/` | Tasas, costos, ISR |
+| `src/rate_allocator/adapters/` | Carga de YAML y reglas regulatorias |
+| `src/rate_allocator/reporting/` | Resúmenes y gráficas |
+| `src/rate_allocator/workflows/` | `summarize_and_plot`, `build_interactive_report_html` |
+| `data/*.yaml` | Instituciones de ejemplo y reglas regulatorias MX |
+| `streamlit_app.py` | Demo público |
