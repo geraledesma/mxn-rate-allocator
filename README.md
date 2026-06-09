@@ -1,23 +1,23 @@
 # MXN Rate Allocator
 
-Distribución óptima de capital entre bancos y SOFIPOs mexicanos para maximizar el rendimiento real — neto de ISR e inflación, con cobertura IPAB/Prosofipo garantizada.
+Optimal capital distribution across Mexican banks and SOFIPOs to maximize real yield — net of taxes and inflation, with guaranteed IPAB/Prosofipo coverage.
 
-## Por qué existe este proyecto
+## Why this project exists
 
-La inclusión financiera es uno de los problemas más serios de México. No solo afecta las finanzas personales de los ciudadanos — tiene un efecto multiplicador directo sobre la calidad de vida, el acceso al crédito, el crecimiento de negocios pequeños y, en consecuencia, la generación de empleo y el desarrollo económico del país.
+Financial inclusion is one of Mexico's most serious problems. It doesn't just affect the personal finances of individual citizens — it has a direct multiplier effect on quality of life, access to credit, small business growth, and ultimately job creation and economic development across the country.
 
-En el centro de ese problema está la educación financiera: es muy pobre, y eso tiene consecuencias concretas. La mayoría de los ahorradores mexicanos deja su dinero en cuentas que pagan 2–4% cuando existen opciones reguladas y seguras que pagan 10–15% — no por falta de interés, sino porque comparar las opciones es genuinamente difícil.
+At the root of that problem is financial education: it's very poor, and that has concrete consequences. Most Mexican savers leave their money in accounts paying 2–4% when regulated, safe options exist paying 10–15% — not out of lack of interest, but because comparing the available options is genuinely difficult.
 
-Este proyecto existe para reducir esa brecha. La herramienta es gratuita, está en español, y está diseñada para que cualquier persona — sin conocimientos financieros previos — pueda tomar una decisión de ahorro informada y segura.
+This project exists to close that gap. The tool is free, built in Spanish, and designed so that anyone — without prior financial knowledge — can make an informed and safe savings decision.
 
-## Qué hace
+## What it does
 
-Dado un monto a invertir, el algoritmo distribuye el capital entre las instituciones disponibles para:
+Given an amount to invest, the algorithm distributes capital across available institutions to:
 
-- Maximizar el rendimiento efectivo neto de impuestos y comisiones
-- Respetar los límites de cobertura IPAB (3.3 M MXN/banco) y Prosofipo (208 k MXN/SOFIPO)
-- Minimizar el número de cuentas necesarias cuando el rendimiento es equivalente
-- Considerar condiciones específicas por institución (membresías, depósitos mínimos, etc.)
+- Maximize effective yield net of taxes and fees
+- Respect IPAB coverage limits (3.3 M MXN/bank) and Prosofipo limits (208 k MXN/SOFIPO)
+- Minimize the number of accounts needed when yield is equivalent
+- Account for institution-specific conditions (memberships, minimum deposits, etc.)
 
 ## Quick Start
 
@@ -53,7 +53,7 @@ print(f"Effective rate: {result.effective_rate:.2%}")
 pip install -e .
 ```
 
-## Demo interactivo (Streamlit)
+## Interactive demo (Streamlit)
 
 **Live demo:** [https://rate-allocator-4mhzzryvjevndl5wnh9dqx.streamlit.app/](https://rate-allocator-4mhzzryvjevndl5wnh9dqx.streamlit.app/)
 
@@ -62,7 +62,7 @@ pip install -e ".[streamlit]"
 streamlit run streamlit_app.py
 ```
 
-La UI está en español. Lee tasas desde SQLite (`data/rates.db`); para regenerar la base después de editar el YAML:
+The UI is in Spanish. Reads rates from SQLite (`data/rates.db`); to regenerate the database after editing the YAML:
 
 ```bash
 python3 scripts/seed_rates_sqlite.py --yaml data/sample1.yaml --db data/rates.db
@@ -76,23 +76,23 @@ pytest tests/
 
 ## How It Works
 
-El optimizador usa programación lineal entera mixta (MILP) con SciPy:
+The optimizer uses Mixed Integer Linear Programming (MILP) via SciPy:
 
-- **Variables:** monto acumulado por tramo por institución
-- **Objetivo:** maximizar el interés total generado
-- **Restricciones:** presupuesto total, límites por tramo, llenado secuencial de tramos, cobertura institucional
+- **Variables:** cumulative amount per tier per institution
+- **Objective:** maximize total interest earned
+- **Constraints:** total budget, per-tier limits, sequential tier filling, institutional coverage
 
-Ver `docs/assumptions.md` para las especificaciones completas del modelo.
+See `docs/assumptions.md` for full model specifications.
 
 ## Project Layout
 
 | Path | Purpose |
 |------|---------|
-| `src/rate_allocator/domain/` | Entidades (`Institution`, `Tier`, `Constraint`, `AllocationResult`) |
-| `src/rate_allocator/core/optimizer/` | `allocate()` — motor MILP |
-| `src/rate_allocator/core/finance/` | Tasas, costos, ISR |
-| `src/rate_allocator/adapters/` | Carga de YAML y reglas regulatorias |
-| `src/rate_allocator/reporting/` | Resúmenes y gráficas |
+| `src/rate_allocator/domain/` | Entities (`Institution`, `Tier`, `Constraint`, `AllocationResult`) |
+| `src/rate_allocator/core/optimizer/` | `allocate()` — MILP engine |
+| `src/rate_allocator/core/finance/` | Rates, costs, taxes |
+| `src/rate_allocator/adapters/` | YAML and regulatory rules loaders |
+| `src/rate_allocator/reporting/` | Summaries and charts |
 | `src/rate_allocator/workflows/` | `summarize_and_plot`, `build_interactive_report_html` |
-| `data/*.yaml` | Instituciones de ejemplo y reglas regulatorias MX |
-| `streamlit_app.py` | Demo público |
+| `data/*.yaml` | Sample institutions and MX regulatory rules |
+| `streamlit_app.py` | Public demo entrypoint |
