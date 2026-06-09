@@ -1,4 +1,4 @@
-"""Streamlit demo: mirrors notebooks/demo_ipywidgets_es.ipynb (allocate → HTML report, UI in Spanish)."""
+"""Streamlit app — flujo de 3 pasos minimalista para el usuario promedio."""
 
 from __future__ import annotations
 
@@ -8,9 +8,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import matplotlib
-
 matplotlib.use("Agg")
-
+import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
@@ -18,12 +17,6 @@ from rate_allocator import Institution, RegulatoryRules, allocate
 from rate_allocator.adapters.noticias_yaml import YamlNoticiaEntry, load_noticias_yaml
 from rate_allocator.adapters.regulatory_loader import load_regulatory_rules_from_yaml
 from rate_allocator.adapters.yaml_loader import load_institutions_with_overrides
-from rate_allocator.reporting.summary import summarize_allocation
-from rate_allocator.workflows.interactive_report import (
-    build_allocation_combo_figure,
-    build_interactive_report_html,
-    build_portfolio_path_figure,
-)
 
 REPO_ROOT = Path(__file__).resolve().parent
 DATA_FILE = REPO_ROOT / "data" / "sample1.yaml"
@@ -34,184 +27,42 @@ MX_ZONE = ZoneInfo("America/Mexico_City")
 DB_URL_ENV = "RATE_ALLOCATOR_DB_URL"
 NOTICIAS_LIMIT_ENV = "RATE_ALLOCATOR_NOTICIAS_LIMIT"
 NOTICIAS_DEFAULT_LIMIT = 2_000
+CACHE_TTL = 120
 
-
-def _resolve_database_url() -> str:
-    """Same resolution as ``rate_allocator.persistence.get_database_url`` without importing SQLAlchemy."""
-    return os.environ.get(DB_URL_ENV, f"sqlite:///{DEFAULT_DB_FILE}")
-
-TOTAL_MIN = 1
-TOTAL_MAX = 1_200_000
+TOTAL_MIN = 1_000
+TOTAL_MAX = 3_000_000
 TOTAL_DEFAULT = 100_000
-CACHE_LOAD_TTL_SECONDS = 120
+HORIZON_YEARS = 1.0
 
-STRINGS = {
-    "page_title": "Rate Allocator",
-    "title": "Rate Allocator: demo interactivo",
-    "caption": (
-        "Elige instituciones y el total en MXN (deslizador o campo numérico, pasos de 100). "
-        "Las tasas y comisiones salen del archivo YAML de ejemplo o de la base de datos si "
-        f"configuraste `{DB_URL_ENV}` o existe `data/rates.db` por defecto. Ejecuta `scripts/ingest_yaml.py` "
-        "y usa **Recargar datos**. "
-        "El horizonte en años ajusta el compuesto al plazo y el modelado de comisiones en el informe."
-    ),
-    "institutions": "Instituciones a incluir",
-    "total_slider": "Total (MXN):",
-    "total_number": "Mismo total (escribe o ±100):",
-    "horizon": "Horizonte (años)",
-    "empty": "Selecciona al menos una institución.",
-    "no_fees": "sin comisiones modeladas",
-    "date_mx": "**Hoy** ({weekday}, {iso} — America/Mexico_City)",
-    "source_db": "Fuente de tasas y reglas: **base de datos**",
-    "source_yaml": "Fuente de tasas y reglas: **archivo YAML (demo)**",
-    "db_fallback_missing_deps": (
-        "Se configuró `RATE_ALLOCATOR_DB_URL`, pero faltan dependencias de BD "
-        "(por ejemplo `sqlalchemy`). Se usa fallback a YAML para evitar que la app falle."
-    ),
-    "reload": "Recargar datos",
-    "noticias": "Noticias",
-    "noticias_help": (
-        "Cambios de tasa desde el historial **SCD2**. **«Efectivo el …»** = inicio de vigencia "
-        "de la nueva tasa (**``tier_versions.effective_from``**). Ordenadas por esa fecha descendente."
-    ),
-    "noticias_from_db_footer": (
-        "Historial SCD2 de la BD conectada (`RATE_ALLOCATOR_DB_URL` o SQLite por defecto). "
-        f"Opcional: límite con `{NOTICIAS_LIMIT_ENV}=all|N`."
-    ),
-    "noticias_empty": (
-        "La base de datos responde, pero **aún no hay cambios de tasa** en el historial SCD2 "
-        "(un solo nivel no genera «noticia»).\n\n"
-        "Ingeste de nuevo después de mover tasas o ejecute scripts como "
-        "`scripts/backfill_history_2026_05_08.py` según aplique."
-    ),
-    "noticias_db_unavailable": (
-        "No se pudo leer la base de datos (archivo ausente, esquema sin migrar o error de conexión). "
-        "Configura `RATE_ALLOCATOR_DB_URL` o crea `data/rates.db` con `scripts/ingest_yaml.py`."
-    ),
-    "noticias_no_deps": (
-        "Este entorno **no tiene SQLAlchemy** (motor SQL), así que no se puede consultar "
-        "`RATE_ALLOCATOR_DB_URL`/`data/rates.db` para SCD2. Para Noticias reales desde la BD, "
-        "instala dependencias del proyecto (`requirements.txt`) o redespliega en Cloud incluyendo "
-        "este paquete con sus dependencias de persistencia."
-    ),
-    "noticias_yaml_demo_no_sql": (
-        "**Sin motor SQL instalado.** Se muestran textos demo desde `data/noticias.yaml` "
-        "(no son el historial SCD2)."
-    ),
-    "noticias_yaml_after_db_error": (
-        "No se pudo leer la base de datos. Se muestran las entradas de `data/noticias.yaml`."
-    ),
-    "chart_section": "Asignación de capital por institución",
-    "path_section": "Trayectoria del portafolio",
-    "pie_warn_empty": "No hay principal asignado para el gráfico circular.",
-    "viz_section": "Panorama visual",
-    "viz_caption": (
-        "Métricas y gráfico interactivo a partir del resultado de la optimización. "
-        "Abajo, el informe detallado con tabla por tramo y gráficos matplotlib."
-    ),
-    "summary_box": "Métricas clave",
-    "metric_allocated": "Monto asignado",
-    "metric_eff_rate": "Tasa efectiva (horizonte)",
-    "metric_exp_return": "Rendimiento neto esperado",
-    "chart_alloc_title": "Asignación de capital por institución",
-    "chart_tooltip_monto": "Monto (MXN)",
-    "table_inst_title": "Desglose por institución",
-    "detail_section": "Informe detallado (tabla y gráficos)",
-    "detail_caption": "Tramos, comisiones, torta de principal e intereses por tramo.",
-    "no_allocation": "Con estos parámetros no hay capital asignado; sube el monto o revisa instituciones.",
+TIPO_LABEL = {
+    "sofipo": "SOFIPO",
+    "banco": "Banco",
+    "none": "Fintech / Gobierno",
 }
 
-
-_MONTHS_ES = (
-    "enero",
-    "febrero",
-    "marzo",
-    "abril",
-    "mayo",
-    "junio",
-    "julio",
-    "agosto",
-    "septiembre",
-    "octubre",
-    "noviembre",
-    "diciembre",
-)
+_MONTHS_ES = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+]
 
 
-def _date_to_calendar_es(d: date) -> str:
-    return f"{d.day} de {_MONTHS_ES[d.month - 1]} de {d.year}"
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+def _resolve_database_url() -> str:
+    return os.environ.get(DB_URL_ENV, f"sqlite:///{DEFAULT_DB_FILE}")
 
 
-def _vigencia_effective_calendar_date(dt: datetime) -> date:
-    """Día en que **vigencia la nueva tasa** (effective_from).
-
-    Los ``effective_from`` del modelo se guardan con sentido contractual en **UTC día
-    civil** (p. ej. ``2026-05-07T00:00:00Z`` ⇒ 7 mayo). Traducirlos sólo con
-    ``astimezone(CDMX).date()`` desplazaría ese instante al **30 abr**, que no es lo
-    buscado. Valores naive se interpretan como calendario Y-M-D explícitos.
-    """
-    if dt.tzinfo is None:
-        return date(dt.year, dt.month, dt.day)
-    return dt.astimezone(timezone.utc).date()
-
-
-def _today_mx_label() -> str:
-    d = datetime.now(MX_ZONE).date()
-    weekdays = (
-        "lunes",
-        "martes",
-        "miércoles",
-        "jueves",
-        "viernes",
-        "sábado",
-        "domingo",
-    )
-    weekday = weekdays[d.weekday()]
-    return STRINGS["date_mx"].format(weekday=weekday, iso=d.isoformat())
-
-
-def _fallback_rules() -> RegulatoryRules:
-    return load_regulatory_rules_from_yaml(str(RULES_FILE))
-
-
-def _noticias_load_limit() -> int | None:
-    """Caps SCD2 rows rendered; env unset = default cap for safety."""
-    raw = os.environ.get(NOTICIAS_LIMIT_ENV)
-    if raw is None or str(raw).strip() == "":
-        return NOTICIAS_DEFAULT_LIMIT
-    s = str(raw).strip().lower()
-    if s == "all" or s == "none" or s == "-1":
-        return None
+def _db_runtime_available() -> bool:
     try:
-        n = int(s)
-        if n <= 0:
-            return None
-        return n
-    except ValueError:
-        return NOTICIAS_DEFAULT_LIMIT
-
-
-def _paragraph_noticia_es(
-    *,
-    institution: str,
-    tier_label: str,
-    old_rate: float,
-    new_rate: float,
-    effective_from_dt: datetime,
-) -> str:
-    old_pct = old_rate * 100.0
-    new_pct = new_rate * 100.0
-    vig_txt = _date_to_calendar_es(_vigencia_effective_calendar_date(effective_from_dt))
-    return (
-        f"{institution} (Tramo {tier_label}): efectivo el {vig_txt}, "
-        f"la tasa nominal se ajustó del {old_pct:.2f}% al {new_pct:.2f}%."
-    )
+        import sqlalchemy  # noqa: F401
+        return True
+    except ModuleNotFoundError:
+        return False
 
 
 def _try_load_db_snapshot(
     db_url: str,
 ) -> tuple[list[Institution], RegulatoryRules | None] | None:
-    """Return DB snapshot or None when DB modules are unavailable or the DB is unreadable."""
     try:
         from rate_allocator.adapters.db_loader import (
             load_institutions_from_db,
@@ -221,408 +72,336 @@ def _try_load_db_snapshot(
         from sqlalchemy.exc import SQLAlchemyError
     except ModuleNotFoundError:
         return None
-
     try:
         engine = create_db_engine(db_url)
         with session_scope(engine) as session:
             institutions = load_institutions_from_db(session)
             rules = load_regulatory_rules_from_db(session, country="MX")
-    except SQLAlchemyError:
+    except Exception:
         return None
     return institutions, rules
 
 
-def _db_runtime_available() -> bool:
-    """True when SQLAlchemy is importable (required for SCD2 noticias from the DB)."""
-    try:
-        import sqlalchemy  # noqa: F401
-    except ModuleNotFoundError:
-        return False
-    return True
+@st.cache_data(ttl=CACHE_TTL, show_spinner="Cargando instituciones…")
+def _load_snapshot(_nonce: int) -> tuple[list[Institution], RegulatoryRules, str]:
+    db_url = _resolve_database_url()
+    snapshot = _try_load_db_snapshot(db_url)
+    fallback_rules = load_regulatory_rules_from_yaml(str(RULES_FILE))
+    if snapshot:
+        insts, rules = snapshot
+        if insts:
+            return insts, rules or fallback_rules, "db"
+    insts = load_institutions_with_overrides(str(DATA_FILE), {})
+    return insts, fallback_rules, "yaml"
 
 
-def _noticias_paragraphs_db(events: list) -> list[str]:
+def _constraint_text(inst: Institution) -> str:
+    """Human-readable condition summary for Step 2 institution cards."""
+    texts = []
+    for tier in inst.tiers:
+        for c in tier.constraints:
+            if not c.active:
+                continue
+            if c.benefit == "membership_plan":
+                texts.append(f"membresía ${c.cost:,.0f}/mes")
+            elif c.benefit == "high_rate_tier" and c.cost <= 10:
+                texts.append("requiere 1 compra al mes")
+            elif c.benefit == "high_rate_tier" and c.cost > 10:
+                texts.append(f"depositar ${c.cost:,.0f}/mes")
+    return " · ".join(texts) if texts else "sin condición"
+
+
+def _tier_summary(inst: Institution) -> str:
+    """One-liner tier summary for Step 2: '15% hasta $10k · 7.5% el resto'."""
+    parts = []
+    for i, tier in enumerate(inst.tiers):
+        if tier.limit == float("inf"):
+            parts.append(f"{tier.rate:.0%} el resto")
+        else:
+            parts.append(f"{tier.rate:.0%} hasta ${tier.limit:,.0f}")
+    return " · ".join(parts)
+
+
+def _coverage_text(inst: Institution) -> str:
+    tipo = (inst.institution_type or "").lower()
+    if tipo == "banco":
+        return "Cobertura IPAB"
+    if tipo == "sofipo":
+        return "Cobertura Prosofipo"
+    return ""
+
+
+def _bar_chart(allocations: dict[str, list[float]]) -> plt.Figure:
+    data = {name: sum(amounts) for name, amounts in allocations.items() if sum(amounts) > 1}
+    if not data:
+        return None
+    fig, ax = plt.subplots(figsize=(8, max(2, len(data) * 0.6)), constrained_layout=True)
+    names = list(data.keys())
+    values = [data[n] for n in names]
+    bars = ax.barh(names, values, color="#00c37a", height=0.5)
+    ax.bar_label(bars, labels=[f"${v:,.0f}" for v in values], padding=6, fontsize=9)
+    ax.set_xlabel("MXN")
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:,.0f}"))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.invert_yaxis()
+    return fig
+
+
+def _date_to_calendar_es(d: date) -> str:
+    return f"{d.day} de {_MONTHS_ES[d.month - 1]} de {d.year}"
+
+
+def _vigencia_date(dt: datetime) -> date:
+    if dt.tzinfo is None:
+        return date(dt.year, dt.month, dt.day)
+    return dt.astimezone(timezone.utc).date()
+
+
+def _noticias_paragraphs(events: list) -> list[str]:
     return [
-        _paragraph_noticia_es(
-            institution=e.institution_name,
-            tier_label=str(e.tier_index + 1),
-            old_rate=e.old_rate,
-            new_rate=e.new_rate,
-            effective_from_dt=e.effective_from,
+        (
+            f"{e.institution_name} (Tramo {e.tier_index + 1}): "
+            f"efectivo el {_date_to_calendar_es(_vigencia_date(e.effective_from))}, "
+            f"tasa ajustada del {e.old_rate * 100:.2f}% al {e.new_rate * 100:.2f}%."
         )
         for e in events
     ]
 
 
-def _utc_aware_for_sort(dt: datetime) -> datetime:
-    return dt.astimezone(timezone.utc) if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-
-
-def _yaml_noticia_sort_key(ent: YamlNoticiaEntry) -> tuple:
-    ef = _utc_aware_for_sort(ent.effective_from)
-    ap = _utc_aware_for_sort(ent.applied_at)
-    try:
-        tn = int(ent.tier_display)
-    except (TypeError, ValueError):
-        tn = -1
-    return (-ef.timestamp(), -ap.timestamp(), ent.institution.lower(), tn)
-
-
-def _noticias_paragraphs_yaml(entries: list[YamlNoticiaEntry]) -> list[str]:
-    sorted_entries = sorted(entries, key=_yaml_noticia_sort_key)
+def _yaml_noticias_paragraphs(entries: list[YamlNoticiaEntry]) -> list[str]:
+    def sort_key(e: YamlNoticiaEntry) -> tuple:
+        ef = e.effective_from.astimezone(timezone.utc) if e.effective_from.tzinfo else e.effective_from.replace(tzinfo=timezone.utc)
+        return (-ef.timestamp(),)
     return [
-        _paragraph_noticia_es(
-            institution=e.institution,
-            tier_label=e.tier_display,
-            old_rate=e.old_rate,
-            new_rate=e.new_rate,
-            effective_from_dt=e.effective_from,
+        (
+            f"{e.institution} (Tramo {e.tier_display}): "
+            f"efectivo el {_date_to_calendar_es(_vigencia_date(e.effective_from))}, "
+            f"tasa ajustada del {e.old_rate * 100:.2f}% al {e.new_rate * 100:.2f}%."
         )
-        for e in sorted_entries
+        for e in sorted(entries, key=sort_key)
     ]
 
 
-def _render_noticias_markdown(paragraphs: list[str]) -> None:
-    if not paragraphs:
-        return
-    body = "\n\n".join(f"{idx}. {p}" for idx, p in enumerate(paragraphs, start=1))
-    st.markdown(body)
+def _render_noticias() -> None:
+    yaml_entries = load_noticias_yaml(NOTICIAS_YAML_FILE)
+    paragraphs: list[str] = []
 
-
-@st.cache_data(ttl=CACHE_LOAD_TTL_SECONDS, show_spinner="Cargando instituciones y reglas...")
-def _load_snapshot(
-    _reload_nonce: int,
-) -> tuple[list[Institution], RegulatoryRules, str, bool]:
-    """Return (institutions, rules, source_key, explicit_db_url_in_env).
-
-    Uses ``RATE_ALLOCATOR_DB_URL`` when set; otherwise ``data/rates.db`` under
-    the app root. Does not import ``rate_allocator.persistence`` here so a
-    missing SQLAlchemy install still falls back to YAML via ``_try_load_db_snapshot``.
-    """
-    explicit_db_url_in_env = os.environ.get(DB_URL_ENV) is not None
-    db_url = _resolve_database_url()
-    db_snapshot = _try_load_db_snapshot(db_url)
-    if db_snapshot is None:
-        institutions = load_institutions_with_overrides(str(DATA_FILE), {})
-        rules = _fallback_rules()
-        return institutions, rules, "yaml", explicit_db_url_in_env
-
-    institutions, rules = db_snapshot
-    if institutions:
-        resolved_rules = rules if rules is not None else _fallback_rules()
-        return institutions, resolved_rules, "db", explicit_db_url_in_env
-    inst_yaml = load_institutions_with_overrides(str(DATA_FILE), {})
-    resolved_rules = rules if rules is not None else _fallback_rules()
-    return inst_yaml, resolved_rules, "yaml", explicit_db_url_in_env
-
-
-def _brief_constraints_label(inst) -> str:
-    parts = []
-    for tier in inst.tiers:
-        for c in tier.constraints:
-            parts.append(f"{c.type} ${c.cost:.2f}")
-    return ", ".join(parts) if parts else STRINGS["no_fees"]
-
-
-def _sync_total_from_slider() -> None:
-    st.session_state.total_mxn = int(st.session_state._total_slider)
-
-
-def _sync_total_from_number() -> None:
-    st.session_state.total_mxn = int(st.session_state._total_num)
-
-
-def _institution_allocation_figure(df: pd.DataFrame, title: str, x_title: str):
-    import matplotlib.pyplot as plt
-
-    df_sorted = df.sort_values("monto_q", ascending=True).reset_index(drop=True)
-    fig_h = max(3.0, min(7.5, 0.45 * len(df_sorted)))
-    fig, ax = plt.subplots(figsize=(10, fig_h), constrained_layout=True)
-    ax.barh(df_sorted["institucion"], df_sorted["monto_q"], color="#2563eb")
-    ax.set_title(title)
-    ax.set_xlabel(x_title)
-    ax.grid(axis="x", alpha=0.2)
-    for idx, value in enumerate(df_sorted["monto_q"]):
-        ax.text(value, idx, f"  {value:,.0f}", va="center", fontsize=10)
-    return fig
-
-
-def _format_mx_compact(value: float) -> str:
-    if value >= 1_000_000:
-        return f"$ {value/1e6:.2f} M"
-    if value >= 1_000:
-        return f"$ {value/1e3:,.1f} k"
-    return f"$ {value:,.0f}"
-
-
-def main() -> None:
-    st.set_page_config(page_title=STRINGS["page_title"], layout="wide")
-
-    if "total_mxn" not in st.session_state:
-        st.session_state.total_mxn = TOTAL_DEFAULT
-    if "reload_nonce" not in st.session_state:
-        st.session_state.reload_nonce = 0
-
-    t = STRINGS
-
-    st.markdown(_today_mx_label())
-    base_institutions, regulatory_rules, source_key, db_configured = _load_snapshot(
-        st.session_state.reload_nonce
-    )
-    if source_key == "db":
-        st.caption(t["source_db"])
-    else:
-        st.caption(t["source_yaml"])
-    if db_configured and source_key != "db" and not _db_runtime_available():
-        st.warning(t["db_fallback_missing_deps"])
-
-    with st.expander(t["noticias"], expanded=False):
-        st.caption(t["noticias_help"])
-        yaml_entries = load_noticias_yaml(NOTICIAS_YAML_FILE)
-        yaml_lines = _noticias_paragraphs_yaml(yaml_entries)
-        db_lines: list[str] = []
-        db_read_failed = False
-        db_hist_query_ok = False
-        if _db_runtime_available():
+    if _db_runtime_available():
+        try:
             from rate_allocator.persistence import create_db_engine, session_scope
             from rate_allocator.persistence.history import load_recent_tier_rate_changes
-            from sqlalchemy.exc import SQLAlchemyError
+            engine = create_db_engine(_resolve_database_url())
+            with session_scope(engine) as session:
+                events = load_recent_tier_rate_changes(session, limit=NOTICIAS_DEFAULT_LIMIT)
+            paragraphs = _noticias_paragraphs(events)
+        except Exception:
+            pass
 
-            try:
-                engine = create_db_engine(_resolve_database_url())
-                with session_scope(engine) as session:
-                    events = load_recent_tier_rate_changes(
-                        session, limit=_noticias_load_limit()
-                    )
-                db_hist_query_ok = True
-                db_lines = _noticias_paragraphs_db(events)
-            except SQLAlchemyError:
-                db_read_failed = True
+    if not paragraphs:
+        paragraphs = _yaml_noticias_paragraphs(yaml_entries)
 
-        if db_lines:
-            _render_noticias_markdown(db_lines)
-            st.caption(t["noticias_from_db_footer"])
-        elif db_hist_query_ok:
-            st.info(t["noticias_empty"])
-        elif db_read_failed and yaml_lines:
-            st.warning(t["noticias_yaml_after_db_error"])
-            _render_noticias_markdown(yaml_lines)
-        elif db_read_failed:
-            st.info(t["noticias_db_unavailable"])
-        elif yaml_lines:
-            st.warning(t["noticias_yaml_demo_no_sql"])
-            _render_noticias_markdown(yaml_lines)
-        else:
-            st.info(t["noticias_no_deps"])
+    if paragraphs:
+        st.markdown("\n\n".join(f"{i}. {p}" for i, p in enumerate(paragraphs, 1)))
+    else:
+        st.info("Sin cambios de tasa registrados aún.")
 
-    st.title(t["title"])
-    st.caption(t["caption"])
 
-    all_names = [inst.name for inst in base_institutions]
-    hints = {inst.name: _brief_constraints_label(inst) for inst in base_institutions}
+# ── main ─────────────────────────────────────────────────────────────────────
 
-    total_value = max(TOTAL_MIN, min(TOTAL_MAX, int(st.session_state.total_mxn)))
+def main() -> None:
+    st.set_page_config(
+        page_title="Rate Allocator MX",
+        page_icon="💰",
+        layout="centered",
+    )
 
-    with st.sidebar:
-        if st.button(t["reload"], help="Invalida la caché de Streamlit y vuelve a leer YAML o la BD."):
-            st.cache_data.clear()
-            st.session_state.reload_nonce = int(st.session_state.reload_nonce) + 1
-            st.rerun()
-        hint_db = os.environ.get(DB_URL_ENV, "")
-        st.caption(
-            "Conexión: `RATE_ALLOCATOR_DB_URL` configurada ✓"
-            if hint_db
-            else f"Conexión: BD por defecto (`{_resolve_database_url()}`) o YAML si no hay datos"
-        )
+    # session state
+    if "reload_nonce" not in st.session_state:
+        st.session_state.reload_nonce = 0
+    if "total_mxn" not in st.session_state:
+        st.session_state.total_mxn = TOTAL_DEFAULT
+    if "calculated" not in st.session_state:
+        st.session_state.calculated = False
 
-        def _institution_option_label(n: str) -> str:
-            hint = hints[n]
-            return n if hint == t["no_fees"] else f"{n} ({hint})"
+    institutions, regulatory_rules, source_key = _load_snapshot(
+        st.session_state.reload_nonce
+    )
 
-        selected = st.multiselect(
-            t["institutions"],
-            options=all_names,
-            default=all_names,
-            format_func=_institution_option_label,
-        )
-        st.slider(
-            t["total_slider"],
+    # ── header ───────────────────────────────────────────────────────────────
+    st.title("💰 Rate Allocator MX")
+    st.markdown(
+        "Descubre dónde poner tu dinero para ganar más — "
+        "gratis, en segundos, con cobertura institucional garantizada."
+    )
+    st.divider()
+
+    # ── paso 1 ───────────────────────────────────────────────────────────────
+    st.markdown("### Paso 1 — ¿Cuánto dinero quieres invertir?")
+
+    col_slider, col_input = st.columns([3, 1])
+    with col_slider:
+        slider_val = st.slider(
+            "Monto (MXN)",
             min_value=TOTAL_MIN,
             max_value=TOTAL_MAX,
-            value=total_value,
-            step=100,
-            key="_total_slider",
-            on_change=_sync_total_from_slider,
+            value=st.session_state.total_mxn,
+            step=1_000,
+            format="$%d",
+            label_visibility="collapsed",
+            key="_slider",
         )
-        st.number_input(
-            t["total_number"],
+    with col_input:
+        input_val = st.number_input(
+            "Monto exacto",
             min_value=TOTAL_MIN,
             max_value=TOTAL_MAX,
-            value=total_value,
-            step=100,
-            key="_total_num",
-            on_change=_sync_total_from_number,
-        )
-        horizon_years = st.slider(
-            t["horizon"],
-            min_value=0.25,
-            max_value=5.0,
-            value=1.0,
-            step=0.25,
+            value=slider_val,
+            step=1_000,
+            label_visibility="collapsed",
+            key="_input",
         )
 
-    total = max(TOTAL_MIN, min(TOTAL_MAX, int(st.session_state.total_mxn)))
+    total = input_val
+    st.session_state.total_mxn = total
+    st.caption(f"**${total:,.0f} MXN** seleccionados")
 
-    if not selected:
-        st.info(t["empty"])
+    st.divider()
+
+    # ── paso 2 ───────────────────────────────────────────────────────────────
+    st.markdown("### Paso 2 — ¿Dónde lo quieres invertir?")
+    st.caption(
+        "Todas las instituciones están seleccionadas por default. "
+        "Desactiva las que no puedas o no quieras cumplir."
+    )
+
+    selected_institutions: list[Institution] = []
+    for inst in institutions:
+        tipo = TIPO_LABEL.get((inst.institution_type or "").lower(), "")
+        condition = _constraint_text(inst)
+        tiers_line = _tier_summary(inst)
+        coverage = _coverage_text(inst)
+
+        with st.container(border=True):
+            col_check, col_info = st.columns([0.06, 0.94])
+            with col_check:
+                checked = st.checkbox(
+                    label=inst.name,
+                    value=True,
+                    key=f"inst_{inst.name}",
+                    label_visibility="collapsed",
+                )
+            with col_info:
+                badge = f"`{tipo}`" if tipo else ""
+                st.markdown(f"**{inst.name}** {badge}")
+                st.caption(f"{tiers_line}")
+                cond_icon = "⚠️" if condition != "sin condición" else "✅"
+                st.caption(f"{cond_icon} {condition}" + (f"  ·  {coverage}" if coverage else ""))
+
+        if checked:
+            selected_institutions.append(inst)
+
+    st.divider()
+
+    # ── botón calcular ────────────────────────────────────────────────────────
+    if not selected_institutions:
+        st.warning("Selecciona al menos una institución para continuar.")
         return
 
-    institutions = [inst for inst in base_institutions if inst.name in selected]
+    btn_label = "🔄 Recalcular mi plan" if st.session_state.calculated else "✅ Calcular mi plan"
+    if st.button(btn_label, type="primary", use_container_width=True):
+        st.session_state.calculated = True
+
+    if not st.session_state.calculated:
+        return
+
+    # ── paso 3 ───────────────────────────────────────────────────────────────
+    st.divider()
+    st.markdown("### Paso 3 — Tu plan óptimo")
 
     result = allocate(
         total=total,
-        institutions=institutions,
-        horizon_years=horizon_years,
+        institutions=selected_institutions,
+        horizon_years=HORIZON_YEARS,
         periods_per_year=365,
         regulatory_rules=regulatory_rules,
     )
 
     if result.total_allocated <= 1e-9:
-        st.warning(t["no_allocation"])
+        st.warning("No se pudo generar una asignación con las instituciones seleccionadas.")
         return
 
-    institution_totals = [
-        (name, sum(amounts))
-        for name, amounts in result.allocations.items()
-        if sum(amounts) > 0
-    ]
-
-    summary = summarize_allocation(
-        result,
-        institutions,
-        horizon_years=horizon_years,
-        compound_years=horizon_years,
-        compounding_periods_per_year=365,
-        regulatory_rules=regulatory_rules,
+    # hero metrics
+    col1, col2 = st.columns(2)
+    col1.metric(
+        label="Rendimiento esperado (1 año)",
+        value=f"${result.expected_return:,.0f} MXN",
     )
-
-    st.subheader(t["viz_section"])
-    st.caption(t["viz_caption"])
-
-    with st.container():
-        st.markdown(f"##### {t['summary_box']}")
-        m1, m2, m3 = st.columns(3)
-        with m1:
-            st.metric(
-                label=t["metric_allocated"],
-                value=f"{result.total_allocated:,.0f} MXN",
-                delta=(
-                    f"{total - result.total_allocated:,.0f} MXN sin asignar"
-                    if abs(total - result.total_allocated) > 0.5
-                    else None
-                ),
-            )
-        with m2:
-            st.metric(label=t["metric_eff_rate"], value=f"{result.effective_rate:.2%}")
-        with m3:
-            st.metric(
-                label=t["metric_exp_return"],
-                value=f"${result.expected_return:,.0f}",
-            )
-
-    chart_rows = [
-        {"institucion": r.name, "monto_q": r.amount}
-        for r in summary.institutions
-        if r.amount > 0
-    ]
-    df_chart = pd.DataFrame(chart_rows)
-    if not df_chart.empty:
-        df_chart["etiqueta"] = df_chart["monto_q"].apply(
-            lambda v: _format_mx_compact(float(v)),
-        )
-        st.markdown(f"##### {t['chart_alloc_title']}")
-        fig_alloc = _institution_allocation_figure(
-            df_chart,
-            title=t["chart_alloc_title"],
-            x_title=t["chart_tooltip_monto"],
-        )
-        st.pyplot(fig_alloc, clear_figure=True)
-
-        st.markdown(f"##### {t['table_inst_title']}")
-        tbl = pd.DataFrame(
-            [
-                {
-                    "Institución": r.name,
-                    "Monto (MXN)": r.amount,
-                    "Participación (%)": r.weight * 100,
-                    "Interés bruto (horizon.)": r.gross_interest,
-                    "Comisiones": r.constraint_cost_paid,
-                    "ISR (estim.)": r.tax_cost_paid,
-                    "Retención (estim.)": r.withholding_paid,
-                    "Contribución neta": r.net_contribution,
-                }
-                for r in summary.institutions
-                if r.amount > 0
-            ]
-        )
-        tbl = tbl.sort_values("Monto (MXN)", ascending=False).reset_index(drop=True)
-        tbl_fmt = pd.DataFrame(
-            {
-                "Institución": tbl["Institución"],
-                "Monto (MXN)": tbl["Monto (MXN)"].map(lambda v: f"${v:,.0f}"),
-                "Participación (%)": tbl["Participación (%)"].map(lambda v: f"{v:.1f} %"),
-                "Interés bruto (horizon.)": tbl["Interés bruto (horizon.)"].map(
-                    lambda v: f"${v:,.2f}"
-                ),
-                "Comisiones": tbl["Comisiones"].map(lambda v: f"${v:,.2f}"),
-                "ISR (estim.)": tbl["ISR (estim.)"].map(lambda v: f"${v:,.2f}"),
-                "Retención (estim.)": tbl["Retención (estim.)"].map(lambda v: f"${v:,.2f}"),
-                "Contribución neta": tbl["Contribución neta"].map(lambda v: f"${v:,.2f}"),
-            }
-        )
-        st.table(tbl_fmt)
+    col2.metric(
+        label="Tasa efectiva",
+        value=f"{result.effective_rate:.2%} anual",
+    )
 
     st.divider()
-    st.subheader(t["detail_section"])
-    st.caption(t["detail_caption"])
 
-    html_fragment = build_interactive_report_html(
-        result,
-        institutions,
-        total=total,
-        horizon_years=horizon_years,
-        periods_per_year=365,
-        regulatory_rules=regulatory_rules,
-        locale="es",
-        embed_charts=False,
-    )
-    st.markdown(html_fragment, unsafe_allow_html=True)
+    # institution cards
+    st.markdown("#### ¿Cómo distribuirlo?")
+    for inst in selected_institutions:
+        tier_amounts = result.allocations.get(inst.name, [])
+        total_inst = sum(tier_amounts)
+        if total_inst < 1:
+            continue
 
-    st.markdown(f"### {t['chart_section']}")
-    combo_vals = [float(v) for _n, v in institution_totals]
-    if sum(combo_vals) <= 0:
-        st.warning(t["pie_warn_empty"])
-    else:
-        fig_combo = build_allocation_combo_figure(
-            result,
-            institutions,
-            institution_totals,
-            horizon_years=horizon_years,
-            periods_per_year=365,
-            regulatory_rules=regulatory_rules,
-            locale="es",
+        inst_interest = sum(
+            amt * tier.rate
+            for amt, tier in zip(tier_amounts, inst.tiers)
         )
-        st.pyplot(fig_combo, clear_figure=True)
 
-    st.markdown(f"### {t['path_section']}")
-    fig_path = build_portfolio_path_figure(
-        result,
-        institutions,
-        max_days=365,
-        periods_per_year=365,
-        locale="es",
-    )
-    st.pyplot(fig_path, clear_figure=True)
+        with st.container(border=True):
+            st.markdown(f"**{inst.name}** — deposita **${total_inst:,.0f} MXN**")
+            for i, (amt, tier) in enumerate(zip(tier_amounts, inst.tiers), 1):
+                if amt < 1:
+                    continue
+                limit_label = (
+                    f"hasta ${tier.limit:,.0f}"
+                    if tier.limit != float("inf")
+                    else "el resto"
+                )
+                st.markdown(
+                    f"&nbsp;&nbsp;&nbsp;`Tramo {i}` &nbsp; ${amt:,.0f} ({limit_label}) &nbsp;→&nbsp; **{tier.rate:.2%}**",
+                    unsafe_allow_html=True,
+                )
+            coverage = _coverage_text(inst)
+            footer = f"Ganarás aprox. **${inst_interest:,.0f} MXN**"
+            if coverage:
+                footer += f"  ·  {coverage}"
+            st.caption(footer)
+
+    st.divider()
+
+    # bar chart
+    st.markdown("#### Distribución del capital")
+    fig = _bar_chart(result.allocations)
+    if fig:
+        st.pyplot(fig, clear_figure=True)
+
+    # ── noticias (al final) ──────────────────────────────────────────────────
+    st.divider()
+    with st.expander("📰 Noticias — cambios recientes de tasas"):
+        st.caption(
+            "Historial de cambios de tasa registrados en la base de datos (SCD2). "
+            "«Efectivo el…» indica cuándo entró en vigor la nueva tasa."
+        )
+        _render_noticias()
+
+    # fuente
+    fuente = "base de datos" if source_key == "db" else "archivo YAML (demo)"
+    st.caption(f"Fuente de tasas: {fuente} · Horizonte: 1 año · Tasas nominales anuales")
+    if st.button("🔁 Recargar datos", help="Invalida la caché y vuelve a leer las tasas."):
+        st.cache_data.clear()
+        st.session_state.reload_nonce += 1
+        st.session_state.calculated = False
+        st.rerun()
 
 
 if __name__ == "__main__":
