@@ -22,3 +22,6 @@ venv/
 *.db-journal
 *.sqlite
 *.sqlite3
+
+# Auto-generated data files
+data/scraped_live.yaml

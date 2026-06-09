@@ -1,7 +1,0 @@
-# Streamlit Community Cloud (and local): install package + UI stack
--e .
-streamlit>=1.28
-matplotlib>=3.7
-# Explicit pins so Cloud resolves DB stack even if editable metadata is skipped
-sqlalchemy>=2.0
-alembic>=1.13
