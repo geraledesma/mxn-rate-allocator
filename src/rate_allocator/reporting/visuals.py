@@ -14,6 +14,7 @@ def plot_net_interest_by_tranche_stacked(
     institutions: list[Institution],
     *,
     horizon_years: float = 1.0,
+    periods_per_year: int = 365,
     regulatory_rules: RegulatoryRules | None = None,
     title: str | None = None,
     ylabel: str | None = None,
@@ -26,6 +27,7 @@ def plot_net_interest_by_tranche_stacked(
         result,
         institutions,
         horizon_years,
+        periods_per_year,
         regulatory_rules or RegulatoryRules(),
     )
     if not labels:
@@ -47,6 +49,7 @@ def _tranche_plot_vectors(
     result: AllocationResult,
     institutions: list[Institution],
     horizon_years: float,
+    periods_per_year: int,
     regulatory_rules: RegulatoryRules,
 ) -> tuple[list[str], list[float], list[float]]:
     labels: list[str] = []
@@ -59,7 +62,7 @@ def _tranche_plot_vectors(
         inst_gross_interest = sum(
             amount
             * (
-                discrete_compounding_accumulation_factor(tier.rate, horizon_years, 365)
+                discrete_compounding_accumulation_factor(tier.rate, horizon_years, periods_per_year)
                 - 1.0
             )
             for amount, tier in zip(amounts, inst.tiers, strict=True)

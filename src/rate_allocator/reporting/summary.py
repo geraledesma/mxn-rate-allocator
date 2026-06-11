@@ -88,7 +88,7 @@ def summarize_allocation(
     _validate_alignment(result, institutions)
     rules = regulatory_rules or RegulatoryRules()
     tier_rows, institution_rows = _build_breakdown_rows(
-        result, institutions, horizon_years, rules
+        result, institutions, horizon_years, rules, compounding_periods_per_year
     )
     gross_total = sum(row.gross_interest for row in tier_rows)
     cost_total = sum(row.constraint_cost_paid + row.tax_cost_paid for row in tier_rows)
@@ -119,6 +119,7 @@ def _build_breakdown_rows(
     institutions: list[Institution],
     horizon_years: float,
     regulatory_rules: RegulatoryRules,
+    periods_per_year: int,
 ) -> tuple[list[TierBreakdown], list[InstitutionBreakdown]]:
     tier_rows: list[TierBreakdown] = []
     institution_rows: list[InstitutionBreakdown] = []
@@ -131,7 +132,9 @@ def _build_breakdown_rows(
         ):
             institution_total = sum(amounts)
             institution_gross_return = sum(
-                amount * rate
+                amount * (
+                    discrete_compounding_accumulation_factor(rate, horizon_years, periods_per_year) - 1.0
+                )
                 for amount, rate in zip(
                     amounts, [tier.rate for tier in inst.tiers], strict=True
                 )

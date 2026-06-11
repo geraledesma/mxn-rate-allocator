@@ -248,6 +248,8 @@ def main() -> None:
         st.session_state.reload_nonce = 0
     if "total_mxn" not in st.session_state:
         st.session_state.total_mxn = TOTAL_DEFAULT
+    if "total_mxn_input" not in st.session_state:
+        st.session_state.total_mxn_input = TOTAL_DEFAULT
 
     institutions, regulatory_rules, source_key = _load_snapshot(
         st.session_state.reload_nonce
@@ -257,15 +259,19 @@ def main() -> None:
     # ── header ───────────────────────────────────────────────────────────────
     st.title("💰 Rate Allocator MX")
     st.markdown(
-        "**Maximiza el rendimiento de tus ahorros** distribuyéndolos de forma inteligente "
-        "entre bancos, SOFIPOs e instrumentos de gobierno — en segundos, sin costo y con "
-        "cobertura institucional garantizada (IPAB / Prosofipo)."
+        "Los bancos y SOFIPOs en México **cambian sus tasas constantemente** para atraer "
+        "clientes nuevos, y cada uno tiene condiciones distintas que también cambian con "
+        "regularidad: montos mínimos, requisitos de consumo, membresías, límites por tramo. "
+        "Seguir todo eso manualmente es complicado — y la mayoría de las personas termina "
+        "dejando su dinero en cuentas que pagan **2–4%** cuando existen opciones reguladas "
+        "y seguras que pagan **10–15%**."
     )
     st.markdown(
-        "En México, la mayoría de las personas deja su dinero en cuentas que pagan 2–4% "
-        "cuando existen opciones reguladas y seguras que pagan 10–15%. Esta herramienta "
-        "existe para cerrar esa brecha: es completamente gratuita para cualquier monto, "
-        "porque la inclusión financiera no debería depender de cuánto tienes."
+        "**Esta herramienta hace el trabajo por ti.** Compara automáticamente las opciones "
+        "disponibles y te dice exactamente dónde poner tu dinero para obtener el mejor "
+        "rendimiento posible, con cobertura institucional garantizada (IPAB / Prosofipo). "
+        "Es completamente gratuita, está en español, y no necesitas ningún conocimiento "
+        "financiero previo para usarla."
     )
     st.divider()
 
@@ -278,9 +284,15 @@ def main() -> None:
     with col_left:
         # ── paso 1 ───────────────────────────────────────────────────────────
         st.markdown("#### Paso 1 — ¿Cuánto quieres invertir?")
-        st.caption("Indica el monto total que deseas distribuir. Puedes ajustarlo en cualquier momento.")
+        st.caption("Indica cuánto dinero quieres poner a trabajar. Puedes ajustar el monto en cualquier momento y el plan se actualiza al instante.")
 
-        col_slider, col_input = st.columns([3, 1])
+        def _sync_slider_to_input():
+            st.session_state.total_mxn_input = st.session_state.total_mxn
+
+        def _sync_input_to_slider():
+            st.session_state.total_mxn = st.session_state.total_mxn_input
+
+        col_slider, col_input = st.columns([3, 1], vertical_alignment="center")
         with col_slider:
             st.slider(
                 "Monto",
@@ -290,19 +302,18 @@ def main() -> None:
                 format="$%d",
                 label_visibility="collapsed",
                 key="total_mxn",
+                on_change=_sync_slider_to_input,
             )
         with col_input:
-            typed = st.number_input(
+            st.number_input(
                 "Monto exacto",
                 min_value=TOTAL_MIN,
                 max_value=TOTAL_MAX,
-                value=st.session_state.total_mxn,
                 step=1_000,
                 label_visibility="collapsed",
+                key="total_mxn_input",
+                on_change=_sync_input_to_slider,
             )
-            if typed != st.session_state.total_mxn:
-                st.session_state.total_mxn = typed
-                st.rerun()
 
         total = st.session_state.total_mxn
         st.caption(f"**${total:,.0f} MXN** seleccionados")
@@ -311,7 +322,7 @@ def main() -> None:
 
         # ── paso 2 ───────────────────────────────────────────────────────────
         st.markdown("#### Paso 2 — ¿Dónde invertirlo?")
-        st.caption("Selecciona las instituciones en las que estás dispuesto a abrir cuenta. Desactiva las que tengan condiciones que no puedas o no quieras cumplir.")
+        st.caption("Estas son las instituciones disponibles, ordenadas de mayor a menor tasa. Todas están pre-seleccionadas. **Desactiva las que tengan condiciones que no puedas o no quieras cumplir** — por ejemplo, si no quieres abrir cuenta en una institución específica o no puedes cumplir el requisito de compra mensual.")
 
         # Toggle button — label flips based on current state
         all_checked = all(
@@ -383,7 +394,7 @@ def main() -> None:
     # RIGHT — Paso 3 (live, auto-updates)
     # ════════════════════════════════════════════════════════════════════════
     with col_right:
-        st.markdown("#### Tu plan óptimo")
+        st.markdown("#### Tu plan personalizado")
 
         if not selected_institutions:
             st.info("Selecciona al menos una institución para ver tu plan.")
@@ -399,16 +410,23 @@ def main() -> None:
             if result.total_allocated <= 1e-9:
                 st.warning("No se pudo generar una asignación con las instituciones seleccionadas.")
             else:
-                # hero metrics
+                st.markdown(
+                    f"Estás invirtiendo **${total:,.0f} MXN**. "
+                    "Este es tu plan para maximizar lo que ganas:"
+                )
                 mc1, mc2 = st.columns(2)
-                mc1.metric(
-                    label="Rendimiento esperado (1 año)",
-                    value=f"${result.expected_return:,.0f} MXN",
-                )
-                mc2.metric(
-                    label="Tasa efectiva",
-                    value=f"{result.effective_rate:.2%} anual",
-                )
+                with mc1:
+                    st.metric(
+                        label="Tasa efectiva",
+                        value=f"{result.effective_rate:.2%} anual",
+                    )
+                    st.caption("El porcentaje que rinde tu dinero en promedio, considerando todos los tramos y condiciones.")
+                with mc2:
+                    st.metric(
+                        label="Rendimiento esperado (1 año)",
+                        value=f"${result.expected_return:,.0f} MXN",
+                    )
+                    st.caption("El dinero que ganarás al final del año si sigues este plan.")
 
                 # bar chart
                 fig = _bar_chart(result.allocations)
@@ -426,39 +444,46 @@ def main() -> None:
                         continue
                     inst_interest = sum(
                         amt * tier.rate
-                        for amt, tier in zip(tier_amounts, inst.tiers)
+                        for amt, tier in zip(tier_amounts, inst.tiers, strict=True)
                     )
                     inst_results.append((inst, tier_amounts, total_inst, inst_interest))
 
                 inst_results.sort(key=lambda x: x[2], reverse=True)
 
                 st.markdown("#### Paso 3 — ¿Cómo distribuirlo?")
-                st.caption("Distribución óptima para maximizar tu rendimiento respetando los límites de cobertura institucional.")
+                st.caption("Así debes distribuir tu dinero. Sigue estas instrucciones:")
                 for inst, tier_amounts, total_inst, inst_interest in inst_results:
                     with st.container(border=True):
-                        st.markdown(f"**{inst.name}** — deposita **${total_inst:,.0f} MXN**")
-                        for i, (amt, tier) in enumerate(zip(tier_amounts, inst.tiers), 1):
-                            if amt < 1:
-                                continue
-                            limit_label = (
-                                f"hasta ${tier.limit:,.0f}"
-                                if tier.limit != float("inf")
-                                else "sin límite"
-                            )
+                        st.markdown(f"**{inst.name}**")
+                        st.caption(f"Deposita ${total_inst:,.0f} MXN en esta institución.")
+
+                        active_tiers = [
+                            (i, amt, tier)
+                            for i, (amt, tier) in enumerate(zip(tier_amounts, inst.tiers, strict=True), 1)
+                            if amt >= 1
+                        ]
+
+                        if len(active_tiers) > 1:
+                            st.caption("*(La institución distribuye tu depósito automáticamente)*")
+
+                        for n, (i, amt, tier) in enumerate(active_tiers, 1):
+                            tier_yield = amt * tier.rate
                             st.html(
-                                f"<div style='margin:2px 0 2px 12px;font-size:0.9em'>"
-                                f"<code>Tramo {i}</code>&nbsp; "
-                                f"${amt:,.0f} ({limit_label}) &rarr; <b>{tier.rate:.2%}</b>"
+                                f"<div style='margin:3px 0;font-size:0.95em;'>"
+                                f"{n}. <b>${amt:,.0f} MXN</b> → tramo {i}"
+                                f" &nbsp;·&nbsp; <b>{tier.rate:.2%}</b>"
+                                f" &nbsp;·&nbsp; rinde <b>${tier_yield:,.0f} MXN</b>"
                                 f"</div>"
                             )
+
                         cond_lines = _constraint_lines(inst)
                         coverage_full = _coverage_text(inst)
-                        footer_parts = [f"Ganarás aprox. **${inst_interest:,.0f} MXN**"]
+                        footer = f"Ganarás aprox. <b>${inst_interest:,.0f} MXN</b> en el año"
                         if coverage_full and coverage_full != "—":
-                            footer_parts.append(f"Cobertura {coverage_full}")
+                            footer += f" &nbsp;·&nbsp; Cobertura {coverage_full}"
                         if cond_lines != ["Sin condición"]:
-                            footer_parts.append("⚠️ " + " · ".join(cond_lines))
-                        st.caption("  ·  ".join(footer_parts))
+                            footer += " &nbsp;·&nbsp; ⚠️ Para acceder a esta tasa necesitas: " + " · ".join(cond_lines)
+                        st.html(f"<div style='font-size:0.85em;opacity:0.7;margin-top:6px;'>{footer}</div>")
 
     # ════════════════════════════════════════════════════════════════════════
     # FULL-WIDTH FOOTER — Noticias

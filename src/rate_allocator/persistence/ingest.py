@@ -16,6 +16,7 @@ The contract is:
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Iterable
@@ -308,6 +309,11 @@ def ingest_institutions(
     for tier_key, current_tier in current_tiers.items():
         bk = tier_key[0]
         if bk in seen_inst_keys and tier_key not in seen_tier_keys:
+            warnings.warn(
+                f"Closing tier {tier_key} for institution '{bk}': "
+                "tier not present in new data. Verify against official T&Cs.",
+                stacklevel=2,
+            )
             current_tier.effective_to = timestamp
             stats.tier_versions_closed += 1
             batch.get()

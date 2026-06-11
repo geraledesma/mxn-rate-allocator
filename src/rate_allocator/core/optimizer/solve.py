@@ -92,6 +92,10 @@ def _validate_allocate_inputs(
         raise ValueError("Total must be non-negative")
     if not institutions:
         raise ValueError("Must provide at least one institution")
+    names = [inst.name for inst in institutions]
+    if len(names) != len(set(names)):
+        duplicates = sorted({n for n in names if names.count(n) > 1})
+        raise ValueError(f"Duplicate institution names: {duplicates}")
     if horizon_years < 0:
         raise ValueError("horizon_years must be non-negative")
     if periods_per_year < 1:
@@ -493,7 +497,8 @@ def _build_tier_unlock_constraints(
     rows: list[np.ndarray] = []
     rhs: list[float] = []
     for inst in institutions:
-        inst_cap = min(total, inst.protection_limit_for(regulatory_rules) or total)
+        limit = inst.protection_limit_for(regulatory_rules)
+        inst_cap = min(total, limit if limit is not None else total)
         for tier_index in range(1, len(inst.tiers)):
             y_idx = y_map[(inst.name, tier_index)]
 
