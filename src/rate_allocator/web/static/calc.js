@@ -325,9 +325,9 @@
     if (state.chart) state.chart.destroy();
 
     const styles = getComputedStyle(document.documentElement);
-    const accent = styles.getPropertyValue('--accent').trim() || '#00b779';
-    const ink = styles.getPropertyValue('--ink-soft').trim() || '#3a4a45';
-    const line = styles.getPropertyValue('--line').trim() || '#e2e6e1';
+    const accent = styles.getPropertyValue('--primary').trim() || '#16365d';
+    const ink = styles.getPropertyValue('--ink-soft').trim() || '#4a4843';
+    const line = styles.getPropertyValue('--line').trim() || '#e5e2d9';
 
     state.chart = new Chart(els.chartCanvas, {
       type: 'bar',
