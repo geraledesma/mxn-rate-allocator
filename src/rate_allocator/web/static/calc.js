@@ -325,7 +325,7 @@
     if (state.chart) state.chart.destroy();
 
     const styles = getComputedStyle(document.documentElement);
-    const accent = styles.getPropertyValue('--primary').trim() || '#16365d';
+    const accent = styles.getPropertyValue('--primary').trim() || '#1e7a4d';
     const ink = styles.getPropertyValue('--ink-soft').trim() || '#4a4843';
     const line = styles.getPropertyValue('--line').trim() || '#e5e2d9';
 

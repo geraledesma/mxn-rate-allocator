@@ -15,24 +15,28 @@
   --line: #e5e2d9;
   --line-strong: #cfcbc0;
 
-  /* Navy: structure & interaction (trust). */
-  --primary: #16365d;
-  --primary-dark: #122b4a;
-  --primary-soft: #dce4ee;
-  --primary-bg: #eef1f6;
+  /* Forest green: brand, interaction, and gains — one optimistic system. */
+  --primary: #1e7a4d;
+  --primary-dark: #175f3c;
+  --primary-soft: #d8eae0;
+  --primary-bg: #edf5f0;
 
-  /* Forest green: reserved for gains, rates, positive states. */
   --accent: #1e7a4d;
   --accent-dark: #175f3c;
   --accent-soft: #d8eae0;
   --accent-bg: #edf5f0;
 
+  /* Warm accent — variant A: cempasúchil marigold (default). */
+  --warm: #e8a33d;
+  --warm-text: #8a5a06;
+  --warm-bg: #fbf0dc;
+
   --warning: #c47406;
   --warning-bg: #fff4e1;
 
-  --primary-grad: #16365d;
+  --primary-grad: #1e7a4d;
   --hero-grad: radial-gradient(circle at 80% 20%, #f0eee6 0%, transparent 55%),
-               radial-gradient(circle at 10% 90%, #eef1f6 0%, transparent 50%);
+               radial-gradient(circle at 10% 90%, #edf5f0 0%, transparent 50%);
 
   --radius: 14px;
   --radius-sm: 10px;
@@ -43,8 +47,15 @@
 
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
                "Helvetica Neue", Arial, system-ui, sans-serif;
-  --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-display: "Figtree", "Inter", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Variant B: rosa mexicano warm accent — activate with ?v=rosa */
+:root[data-variant="rosa"] {
+  --warm: #d6336c;
+  --warm-text: #b01e55;
+  --warm-bg: #fae3ec;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -58,19 +69,27 @@
     --ink-mute: #948f85;
     --line: #383530;
     --line-strong: #4a463f;
-    --primary: #8fb0da;
-    --primary-dark: #a9c3e5;
-    --primary-soft: #27384f;
-    --primary-bg: #1f2b3c;
+    --primary: #5bb389;
+    --primary-dark: #79c49e;
+    --primary-soft: #1f3a2c;
+    --primary-bg: #1a2c22;
     --accent: #5bb389;
     --accent-dark: #79c49e;
     --accent-soft: #1f3a2c;
     --accent-bg: #1a2c22;
+    --warm: #e8b05b;
+    --warm-text: #e8b05b;
+    --warm-bg: #322610;
     --warning: #f6b94a;
     --warning-bg: #2a210e;
-    --primary-grad: #1d4e89;
+    --primary-grad: #1e7a4d;
     --hero-grad: radial-gradient(circle at 80% 20%, #232120 0%, transparent 55%),
-                 radial-gradient(circle at 10% 90%, #1f2b3c 0%, transparent 55%);
+                 radial-gradient(circle at 10% 90%, #1a2c22 0%, transparent 55%);
+  }
+  :root[data-variant="rosa"] {
+    --warm: #e87fa8;
+    --warm-text: #e87fa8;
+    --warm-bg: #3a1524;
   }
 }
 
@@ -239,17 +258,18 @@ button { font-family: inherit; cursor: pointer; }
   font-size: .82rem;
   text-transform: uppercase;
   letter-spacing: .12em;
-  color: var(--primary);
-  font-weight: 600;
+  color: var(--warm-text);
+  font-weight: 700;
   margin: 0 0 14px;
 }
 
 .hero h1 {
   font-family: var(--font-display);
   font-size: clamp(2rem, 4.8vw, 3.4rem);
-  line-height: 1.12;
+  line-height: 1.08;
+  letter-spacing: -.015em;
   margin: 0 0 22px;
-  font-weight: 600;
+  font-weight: 700;
 }
 .hero h1 .hl {
   color: var(--primary);
@@ -276,6 +296,12 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 999px;
   font-size: .85rem;
   color: var(--ink-soft);
+}
+.pill-warm {
+  background: var(--warm-bg);
+  border-color: var(--warm);
+  color: var(--warm-text);
+  font-weight: 600;
 }
 
 .hero-side {
@@ -379,8 +405,8 @@ button { font-family: inherit; cursor: pointer; }
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: var(--primary-bg);
-  color: var(--primary);
+  background: var(--warm-bg);
+  color: var(--warm-text);
   font-weight: 700;
   display: grid;
   place-items: center;
@@ -608,14 +634,14 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -.01em;
-  box-shadow: 0 8px 24px -8px rgba(22, 54, 93, .5);
+  box-shadow: 0 8px 24px -8px rgba(23, 95, 60, .5);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   transition: transform .12s, box-shadow .15s, opacity .15s;
 }
-.cta:hover { transform: translateY(-1px); box-shadow: 0 12px 28px -10px rgba(22, 54, 93, .55); }
+.cta:hover { transform: translateY(-1px); box-shadow: 0 12px 28px -10px rgba(23, 95, 60, .55); }
 .cta:active { transform: translateY(0); }
 .cta:disabled { opacity: .7; cursor: progress; }
 .cta-spinner {
@@ -997,7 +1023,7 @@ button { font-family: inherit; cursor: pointer; }
   height: 48px;
   display: grid;
   place-items: center;
-  background: var(--primary-bg);
+  background: var(--warm-bg);
   border-radius: 12px;
   margin-bottom: 12px;
 }
@@ -1372,7 +1398,7 @@ html { background: var(--bg); }
     padding: 16px 20px;
     font-size: 1rem;
     border-radius: 999px;
-    box-shadow: 0 12px 30px -8px rgba(22, 54, 93, .5),
+    box-shadow: 0 12px 30px -8px rgba(23, 95, 60, .5),
                 0 4px 12px rgba(0, 0, 0, .12);
   }
   /* Hide sticky CTA once the user is reading the results
@@ -1544,7 +1570,7 @@ html { background: var(--bg); }
 @media (hover: none) and (pointer: coarse) {
   /* Remove hover-only affordances that get stuck on touch */
   .inst:hover { border-color: var(--line); }
-  .cta:hover { transform: none; box-shadow: 0 8px 24px -8px rgba(22, 54, 93, .5); }
+  .cta:hover { transform: none; box-shadow: 0 8px 24px -8px rgba(23, 95, 60, .5); }
   .nav-links a:hover { background: transparent; }
   /* But make pressed state visible */
   .inst:active { transform: scale(.99); }
