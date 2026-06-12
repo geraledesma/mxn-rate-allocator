@@ -76,6 +76,12 @@
     #1e7a4d 44px 66px,
     #3b6ea5 66px 88px
   );
+  /* Weaves in once per page load — a greeting, never ambient. */
+  transform-origin: left;
+  animation: hilo-weave .6s cubic-bezier(.4, 0, .2, 1) both;
+}
+@keyframes hilo-weave {
+  from { transform: scaleX(0); }
 }
 
 * { box-sizing: border-box; }
@@ -619,17 +625,26 @@ button { font-family: inherit; cursor: pointer; }
 .cta:hover { transform: translateY(-1px); box-shadow: 0 12px 28px -10px rgba(23, 95, 60, .55); }
 .cta:active { transform: translateY(0); }
 .cta:disabled { opacity: .7; cursor: progress; }
-.cta-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, .4);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin .8s linear infinite;
+
+/* Weaving loader: the optimizer is interleaving money across institutions —
+   show threads passing through, not a generic spinner. */
+.cta-weave {
+  width: 32px;
+  height: 4px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, .9) 0 8px,
+    var(--warm) 8px 16px,
+    rgba(255, 255, 255, .9) 16px 24px,
+    #9fc3e0 24px 32px
+  );
+  background-size: 32px 4px;
+  animation: weave-slide .9s linear infinite;
   display: none;
 }
-.cta.is-loading .cta-spinner { display: inline-block; }
-@keyframes spin { to { transform: rotate(360deg); } }
+.cta.is-loading .cta-weave { display: inline-block; }
+@keyframes weave-slide { to { background-position-x: 32px; } }
 
 /* ───── Results pane ─────────────────────────────────────────────────────── */
 
@@ -660,6 +675,13 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: var(--radius-lg);
   padding: clamp(20px, 2.6vw, 32px);
   box-shadow: var(--shadow);
+  /* Restarts each time [hidden] is removed (display none → block). */
+  animation: rise-in .22s ease-out;
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
 }
 .results-header h2 {
   margin: 0 0 8px;
@@ -745,7 +767,12 @@ button { font-family: inherit; cursor: pointer; }
   margin-bottom: 12px;
   background: var(--surface);
   position: relative;
+  animation: rise-in .26s ease-out both;
 }
+.plan-card:nth-child(2) { animation-delay: 60ms; }
+.plan-card:nth-child(3) { animation-delay: 120ms; }
+.plan-card:nth-child(4) { animation-delay: 180ms; }
+.plan-card:nth-child(n+5) { animation-delay: 240ms; }
 .plan-card-head {
   display: flex;
   justify-content: space-between;
