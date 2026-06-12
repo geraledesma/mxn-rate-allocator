@@ -104,9 +104,9 @@ def test_allocate_comparativa():
         json={"total": 100_000, "instituciones_habilitadas": names},
     )
     comp = resp.json()["comparativa"]
-    assert comp["rendimiento_tradicional"] == pytest.approx(3_000)
+    assert comp["rendimiento_cetes"] == pytest.approx(6_250)
     assert comp["delta"] == pytest.approx(
-        resp.json()["rendimiento_esperado"] - 3_000
+        resp.json()["rendimiento_esperado"] - 6_250
     )
 
 

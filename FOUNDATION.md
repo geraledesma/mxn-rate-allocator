@@ -117,13 +117,13 @@ Expressions of the metaphor (keep scarce — scarcity is the signature):
 
 ### Benchmark policy
 
-Comparisons shown to the user form a ladder that teaches the rate hierarchy:
-**cuenta tradicional (3%) → CETES 28 días (curated constant, dated) → tu plan.**
-The traditional account is the emotional comparison (the user's lived reality); CETES is the
-credibility benchmark (beating the government's risk-free rate answers "¿demasiado bueno para
-ser cierto?"). CETES remains excluded as a *product* (see Methodology — liquidity) but serves
-as a *reference*. The CETES rate is curated manually like institution rates; update it
-alongside them (`CETES_28_RATE` in `web/app.py`).
+The single benchmark shown to the user is **CETES 28 días** — the risk-free reference of
+Mexican saving. Beating the government's own rate is the most defensible comparison available
+and answers the credibility question ("¿demasiado bueno para ser cierto?") without a
+"typical account" strawman. (Decision 2026-06-12: replaced the earlier cuenta-tradicional-3%
+comparison entirely.) CETES remains excluded as a *product* (see Methodology — liquidity) but
+serves as the *reference*. The CETES rate is curated manually like institution rates; update
+it alongside them (`CETES_28_RATE` in `web/app.py`).
 
 ---
 

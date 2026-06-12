@@ -24,12 +24,10 @@ DEFAULT_DB_FILE = REPO_ROOT / "data" / "rates.db"
 NOTICIAS_YAML_FILE = REPO_ROOT / "data" / "noticias.yaml"
 DB_URL_ENV = "RATE_ALLOCATOR_DB_URL"
 
-# Baseline for the "what you'd earn in a typical savings account" comparison —
-# FOUNDATION cites 2–4% as the range most Mexicans actually receive; use midpoint.
-TRADITIONAL_RATE = 0.03
-# Credibility benchmark: CETES 28 días. Curated manually like institution rates;
-# update alongside them. Last set 2026-06-11 (verify at banxico.org.mx).
-CETES_28_RATE = 0.0645
+# Sole benchmark: CETES 28 días, the risk-free reference of Mexican saving.
+# Curated manually like institution rates; update alongside them.
+# Last set 2026-06-12 (verify at banxico.org.mx).
+CETES_28_RATE = 0.0625
 NOTICIAS_LIMIT = 30
 
 WEB_DIR = Path(__file__).resolve().parent
@@ -363,10 +361,9 @@ async def post_allocate(body: AllocateRequest) -> JSONResponse:
         )
 
     # Mission impact framing (FOUNDATION): show the user the value delivered —
-    # what this plan earns vs. leaving the money in a typical 3% account.
-    traditional_return = body.total * TRADITIONAL_RATE * body.horizonte_anos
-    delta = result.expected_return - traditional_return
+    # what this plan earns vs. CETES 28, the risk-free benchmark.
     cetes_return = body.total * CETES_28_RATE * body.horizonte_anos
+    delta = result.expected_return - cetes_return
 
     return JSONResponse({
         "tasa_efectiva": float(result.effective_rate),
@@ -376,16 +373,12 @@ async def post_allocate(body: AllocateRequest) -> JSONResponse:
         "total_asignado": float(result.total_allocated),
         "total_asignado_label": _fmt_mxn(result.total_allocated),
         "comparativa": {
-            "tasa_tradicional": TRADITIONAL_RATE,
-            "tasa_tradicional_label": f"{TRADITIONAL_RATE:.0%}",
-            "rendimiento_tradicional": float(traditional_return),
-            "rendimiento_tradicional_label": _fmt_mxn(traditional_return),
-            "delta": float(delta),
-            "delta_label": _fmt_mxn(delta),
             "tasa_cetes": CETES_28_RATE,
             "tasa_cetes_label": f"{CETES_28_RATE:.2%}",
             "rendimiento_cetes": float(cetes_return),
             "rendimiento_cetes_label": _fmt_mxn(cetes_return),
+            "delta": float(delta),
+            "delta_label": _fmt_mxn(delta),
         },
         "asignaciones": asignaciones,
         "chart_data": {
