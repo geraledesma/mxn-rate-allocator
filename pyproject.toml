@@ -7,7 +7,7 @@ name = "rate-allocator"
 version = "0.1.0"
 description = "Optimal cash allocation across SOFIPOs and Mexican banks with tiered interest rates"
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "BUSL-1.1" }
 requires-python = ">=3.10"
 dependencies = [
     "scipy>=1.10.0",

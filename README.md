@@ -2,6 +2,8 @@
 
 Optimal capital distribution across Mexican banks and SOFIPOs to maximize real yield — net of taxes and inflation, with guaranteed IPAB/Prosofipo coverage.
 
+> Source available under [BUSL-1.1](LICENSE). Free for personal, non-commercial use.
+
 ## Why this project exists
 
 Financial inclusion is one of Mexico's most serious problems. It doesn't just affect the personal finances of individual citizens — it has a direct multiplier effect on quality of life, access to credit, small business growth, and ultimately job creation and economic development across the country.
