@@ -51,46 +51,31 @@
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
-/* Variant B: rosa mexicano warm accent — activate with ?v=rosa */
+/* Variant B+ "rosa elevada": rosa mexicano as secondary brand color.
+   Activate with ?v=rosa (session-persisted). Marigold variant is default. */
 :root[data-variant="rosa"] {
   --warm: #d6336c;
   --warm-text: #b01e55;
   --warm-bg: #fae3ec;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1b1a18;
-    --bg-soft: #232120;
-    --surface: #262422;
-    --surface-elev: #2d2b28;
-    --ink: #f2f0eb;
-    --ink-soft: #c8c4bc;
-    --ink-mute: #948f85;
-    --line: #383530;
-    --line-strong: #4a463f;
-    --primary: #5bb389;
-    --primary-dark: #79c49e;
-    --primary-soft: #1f3a2c;
-    --primary-bg: #1a2c22;
-    --accent: #5bb389;
-    --accent-dark: #79c49e;
-    --accent-soft: #1f3a2c;
-    --accent-bg: #1a2c22;
-    --warm: #e8b05b;
-    --warm-text: #e8b05b;
-    --warm-bg: #322610;
-    --warning: #f6b94a;
-    --warning-bg: #2a210e;
-    --primary-grad: #1e7a4d;
-    --hero-grad: radial-gradient(circle at 80% 20%, #232120 0%, transparent 55%),
-                 radial-gradient(circle at 10% 90%, #1a2c22 0%, transparent 55%);
-  }
-  :root[data-variant="rosa"] {
-    --warm: #e87fa8;
-    --warm-text: #e87fa8;
-    --warm-bg: #3a1524;
-  }
+/* B+ — rosa wordmark accent ("Tasas MX") */
+:root[data-variant="rosa"] .brand-accent { color: var(--warm); }
+:root[data-variant="rosa"] .site-footer .brand-accent { color: #e87fa8; }
+
+/* B+ — "hilo": woven textile band as the single brand signature,
+   muted rosa / cempasúchil / verde / azul under the header. */
+:root[data-variant="rosa"] .site-header::after {
+  content: "";
+  display: block;
+  height: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    #d6336c 0 22px,
+    #e8a33d 22px 44px,
+    #1e7a4d 44px 66px,
+    #3b6ea5 66px 88px
+  );
 }
 
 * { box-sizing: border-box; }
@@ -147,9 +132,6 @@ button { font-family: inherit; cursor: pointer; }
   backdrop-filter: saturate(140%) blur(10px);
   -webkit-backdrop-filter: saturate(140%) blur(10px);
   border-bottom: 1px solid var(--line);
-}
-@media (prefers-color-scheme: dark) {
-  .site-header { background: rgba(27, 26, 24, .85); }
 }
 
 .nav {
@@ -586,10 +568,6 @@ button { font-family: inherit; cursor: pointer; }
 }
 .tag-sofipo { background: #e9eefa; color: #2c4a8a; }
 .tag-banco { background: #ecf4ea; color: #3d6b2b; }
-@media (prefers-color-scheme: dark) {
-  .tag-sofipo { background: #1a2640; color: #a4baeb; }
-  .tag-banco { background: #1c2c1a; color: #a6cb96; }
-}
 .inst-meta {
   margin: 4px 0 0;
   font-size: .82rem;
@@ -600,9 +578,6 @@ button { font-family: inherit; cursor: pointer; }
 }
 .inst-meta .cond-warn { color: var(--warning); font-weight: 500; }
 .inst-meta .cond-ok { color: var(--accent-dark); }
-@media (prefers-color-scheme: dark) {
-  .inst-meta .cond-ok { color: var(--accent); }
-}
 
 .inst-rate {
   font-weight: 700;
@@ -791,7 +766,6 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--accent-dark);
   white-space: nowrap;
 }
-@media (prefers-color-scheme: dark) { .plan-card-deposit { color: var(--accent); } }
 .plan-card-instr {
   margin: 0 0 12px;
   font-size: .9rem;
@@ -834,7 +808,6 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 600;
   font-size: .82rem;
 }
-@media (prefers-color-scheme: dark) { .tier-rate { color: var(--accent); } }
 .tier-yield {
   font-size: .82rem;
   color: var(--ink-soft);
@@ -891,7 +864,6 @@ button { font-family: inherit; cursor: pointer; }
   line-height: 1.5;
 }
 .delta-banner strong { color: var(--accent-dark); font-size: 1.05em; }
-@media (prefers-color-scheme: dark) { .delta-banner strong { color: var(--accent); } }
 .delta-icon {
   flex: 0 0 auto;
   width: 30px;
@@ -980,10 +952,6 @@ button { font-family: inherit; cursor: pointer; }
 }
 .noticia-up { color: var(--accent-dark); }
 .noticia-down { color: #c0392b; }
-@media (prefers-color-scheme: dark) {
-  .noticia-up { color: var(--accent); }
-  .noticia-down { color: #e07b6e; }
-}
 .noticia-body { min-width: 0; }
 .noticia-title {
   margin: 0;
@@ -1059,10 +1027,8 @@ button { font-family: inherit; cursor: pointer; }
   color: #cfcbc0;
   padding-block: 48px 24px;
 }
-@media (prefers-color-scheme: dark) {
-  .site-footer { background: #121110; }
-}
 .site-footer a { color: #cfcbc0; }
+.site-footer .brand-accent { color: #5bb389; }
 .site-footer a:hover { color: #fff; }
 .footer-grid {
   display: grid;
