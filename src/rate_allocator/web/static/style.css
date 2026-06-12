@@ -4,7 +4,7 @@
 ============================================================================= */
 
 :root {
-  /* Brand palette — warm paper, institutional navy, forest-green gains */
+  /* Brand palette — warm paper, forest green, rosa mexicano */
   --bg: #faf9f5;
   --bg-soft: #f0eee6;
   --surface: #ffffff;
@@ -26,10 +26,10 @@
   --accent-soft: #d8eae0;
   --accent-bg: #edf5f0;
 
-  /* Warm accent — variant A: cempasúchil marigold (default). */
-  --warm: #e8a33d;
-  --warm-text: #8a5a06;
-  --warm-bg: #fbf0dc;
+  /* Warm accent — rosa mexicano ("B+ rosa elevada", the default). */
+  --warm: #d6336c;
+  --warm-text: #b01e55;
+  --warm-bg: #fae3ec;
 
   --warning: #c47406;
   --warning-bg: #fff4e1;
@@ -51,21 +51,20 @@
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
-/* Variant B+ "rosa elevada": rosa mexicano as secondary brand color.
-   Activate with ?v=rosa (session-persisted). Marigold variant is default. */
-:root[data-variant="rosa"] {
-  --warm: #d6336c;
-  --warm-text: #b01e55;
-  --warm-bg: #fae3ec;
+/* A/B variant: cempasúchil marigold warm accent, no hilo, green wordmark.
+   Activate with ?v=marigold (session-persisted). Rosa elevada is the default. */
+:root[data-variant="marigold"] {
+  --warm: #e8a33d;
+  --warm-text: #8a5a06;
+  --warm-bg: #fbf0dc;
 }
+:root[data-variant="marigold"] .brand-accent { color: var(--primary); }
+:root[data-variant="marigold"] .site-footer .brand-accent { color: #5bb389; }
+:root[data-variant="marigold"] .site-header::after { content: none; }
 
-/* B+ — rosa wordmark accent ("Tasas MX") */
-:root[data-variant="rosa"] .brand-accent { color: var(--warm); }
-:root[data-variant="rosa"] .site-footer .brand-accent { color: #e87fa8; }
-
-/* B+ — "hilo": woven textile band as the single brand signature,
-   muted rosa / cempasúchil / verde / azul under the header. */
-:root[data-variant="rosa"] .site-header::after {
+/* "Hilo": woven textile band as the single brand signature,
+   rosa / cempasúchil / verde / azul under the header. */
+.site-header::after {
   content: "";
   display: block;
   height: 3px;
@@ -170,7 +169,7 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: -.02em;
 }
 .brand-name { letter-spacing: -.01em; }
-.brand-accent { color: var(--primary); }
+.brand-accent { color: var(--warm); }
 .brand-by {
   font-size: .72rem;
   font-weight: 500;
@@ -1067,7 +1066,7 @@ button { font-family: inherit; cursor: pointer; }
   padding-block: 48px 24px;
 }
 .site-footer a { color: #cfcbc0; }
-.site-footer .brand-accent { color: #5bb389; }
+.site-footer .brand-accent { color: #e87fa8; }
 .site-footer a:hover { color: #fff; }
 .footer-grid {
   display: grid;

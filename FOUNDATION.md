@@ -90,7 +90,7 @@ Expressions of the metaphor (keep scarce — scarcity is the signature):
 |---|---|---|
 | Background | Warm paper `#FAF9F5` / ivory `#F0EEE6`, always light — **no dark mode** | Dark variant read as "green-and-black trading app"; one controlled appearance |
 | Brand / interaction / gains | Forest green `#1E7A4D` (dark `#175F3C`) — the only brand color | Money/growth/hope; dark + desaturated avoids both crypto-mint and dollar-bill green |
-| Warm accent | **Rosa mexicano `#D6336C`** (variant B+, chosen direction) — eyebrows, step numbers, trust icons, highlight pills, wordmark accent | Cultural pride (CDMX, Ramírez Vázquez), distinctly Mexican; saturated rosa ≠ soft pink |
+| Warm accent | **Rosa mexicano `#D6336C`** — the default ("rosa elevada", decided 2026-06-12): eyebrows, step numbers, trust icons, highlight pills, wordmark accent, hilo. Marigold `#E8A33D` remains testable via `?v=marigold` (no hilo, green wordmark). | Cultural pride (CDMX, Ramírez Vázquez), distinctly Mexican; saturated rosa ≠ soft pink |
 | Typography | Figtree (display, 600/700) + Inter (UI/body); tabular numerals for all money figures | Friendly humanist sans; serif rejected (affluent/editorial coding), tight tracking rejected (startup coding) |
 | Motion | **Motion with a job, never ambient.** Every animation answers "what did the user just do?" Results rise-in 220ms, plan-card stagger 60ms, hilo weaves in once per load. Ambient/background animation rejected (periphery attention, low-end Android jank, crypto-line cliché). All behind `prefers-reduced-motion`. | |
 

@@ -42,13 +42,14 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@600;700&display=swap">
   <link rel="stylesheet" href="/static/style.css">
   <script>
-    // A/B warm-accent variant: ?v=rosa switches marigold → rosa mexicano (persists for the session).
+    // A/B warm-accent variant: rosa elevada is the default; ?v=marigold switches
+    // to the marigold test variant (persists for the session). ?v=rosa resets.
     (function () {
       var v = new URLSearchParams(location.search).get('v') || sessionStorage.getItem('tmx-variant');
-      if (v === 'rosa') {
-        document.documentElement.dataset.variant = 'rosa';
-        sessionStorage.setItem('tmx-variant', 'rosa');
-      } else if (v === 'marigold') {
+      if (v === 'marigold') {
+        document.documentElement.dataset.variant = 'marigold';
+        sessionStorage.setItem('tmx-variant', 'marigold');
+      } else if (v === 'rosa') {
         sessionStorage.removeItem('tmx-variant');
       }
     })();
