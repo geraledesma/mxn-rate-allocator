@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}MXN Rate Allocator — Maximiza el rendimiento de tus ahorros{% endblock %}</title>
+  <meta name="description" content="{% block description %}Calculadora gratuita que distribuye tu dinero entre bancos y SOFIPOs de México para maximizar tu rendimiento. En español, sin registro.{% endblock %}">
+  <meta name="theme-color" content="#f6f7f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1513" media="(prefers-color-scheme: dark)">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Tasas MX">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="canonical" href="{{ request.url }}">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Tasas MX">
+  <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
+  <meta property="og:description" content="{{ self.description() }}">
+  <meta property="og:url" content="{{ request.url }}">
+  <meta property="og:locale" content="es_MX">
+  <meta name="twitter:card" content="summary">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Tasas MX",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web",
+    "inLanguage": "es-MX",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MXN" },
+    "description": "Calculadora gratuita que distribuye tu dinero entre bancos y SOFIPOs de México para maximizar tu rendimiento con cobertura IPAB y Prosofipo."
+  }
+  </script>
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="/static/style.css">
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">$</span>
+        <span class="brand-name">Tasas <span class="brand-accent">MX</span></span>
+      </a>
+      <nav aria-label="Navegación principal">
+        <ul class="nav-links">
+          <li><a href="/">Calculadora</a></li>
+          <li><a href="/sofipo">¿Qué es una SOFIPO?</a></li>
+          <li><a href="/ipab">IPAB &amp; Prosofipo</a></li>
+          <li><a href="/glosario">Glosario</a></li>
+          <li><a href="/como-funciona">¿Cómo funciona?</a></li>
+        </ul>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menú" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="contenido">
+    {% block content %}{% endblock %}
+  </main>
+
+  <section class="disclaimer-band">
+    <div class="container">
+      <p>
+        <strong>Aviso:</strong> Esta herramienta es de carácter informativo. No constituye
+        asesoría financiera, fiscal ni de inversión. Las tasas mostradas provienen de
+        fuentes públicas y pueden variar. Consulta directamente con cada institución
+        antes de tomar decisiones de inversión.
+      </p>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <div class="brand brand-footer">
+          <span class="brand-mark" aria-hidden="true">$</span>
+          <span class="brand-name">Tasas <span class="brand-accent">MX</span></span>
+        </div>
+        <p class="footer-tagline">
+          Inclusión financiera para México. Gratis, en español, sin registro.
+        </p>
+      </div>
+      <div>
+        <h4>Recursos</h4>
+        <ul>
+          <li><a href="/sofipo">¿Qué es una SOFIPO?</a></li>
+          <li><a href="/ipab">IPAB y Prosofipo</a></li>
+          <li><a href="/glosario">Glosario</a></li>
+          <li><a href="/como-funciona">¿Cómo funciona?</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="/privacidad">Aviso de Privacidad</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Datos</h4>
+        <p class="footer-meta">Última actualización<br><strong>{{ ultima_actualizacion }}</strong></p>
+      </div>
+    </div>
+    <div class="container footer-copy">
+      <small>© {{ anio_actual }} Tasas MX · Hecho con propósito de inclusión financiera.</small>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      const btn = document.getElementById('nav-toggle');
+      const links = document.querySelector('.nav-links');
+      if (!btn || !links) return;
+      btn.addEventListener('click', () => {
+        const open = links.classList.toggle('open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+    })();
+  </script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

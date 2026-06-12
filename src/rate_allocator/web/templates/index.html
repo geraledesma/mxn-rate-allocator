@@ -1,0 +1,241 @@
+{% extends "_base.html" %}
+
+{% block title %}Tasas MX — Maximiza el rendimiento de tus ahorros en México{% endblock %}
+{% block description %}Calculadora gratuita: distribuye tu dinero entre bancos y SOFIPOs de México para obtener el mejor rendimiento posible con cobertura IPAB y Prosofipo.{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="container hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow">Calculadora gratuita · sin registro</p>
+      <h1>
+        Maximiza el rendimiento<br>
+        de <span class="hl">tus ahorros</span>
+      </h1>
+      <p class="lede">
+        Los bancos y SOFIPOs en México <strong>cambian sus tasas constantemente</strong>
+        y cada uno tiene condiciones distintas: montos mínimos, requisitos de consumo,
+        membresías, límites por tramo. Seguir todo eso manualmente es complicado — y la
+        mayoría termina dejando su dinero en cuentas que pagan
+        <strong>2–4%</strong> cuando existen opciones reguladas y seguras que pagan
+        <strong>10–15%</strong>.
+      </p>
+      <p class="lede">
+        <strong>Esta herramienta hace el trabajo por ti.</strong> Compara automáticamente
+        las opciones disponibles y te dice exactamente dónde poner tu dinero, con
+        cobertura institucional garantizada (IPAB / Prosofipo).
+      </p>
+      <p class="hero-meta">
+        <span class="pill">🇲🇽 100% en español</span>
+        <span class="pill">🔒 Sin registro</span>
+        <span class="pill">📅 Datos al {{ ultima_actualizacion }}</span>
+      </p>
+    </div>
+    <aside class="hero-side" aria-label="Resumen rápido">
+      <div class="stat-card">
+        <p class="stat-label">Diferencia típica anual</p>
+        <p class="stat-big">+ <span data-anim="counter" data-target="12000">$12,000</span> MXN</p>
+        <p class="stat-foot">en $100,000 MXN — vs. dejar el dinero en una cuenta común al 3%.</p>
+      </div>
+      <div class="stat-card stat-card-muted">
+        <p class="stat-label">Tiempo en calcular</p>
+        <p class="stat-big">&lt; 30 segundos</p>
+        <p class="stat-foot">Mueve el monto, revisa las condiciones, recibe tu plan personalizado.</p>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- AdSense top banner placeholder -->
+<aside class="ad-slot ad-slot-top container" aria-hidden="true" data-slot="top">
+  <span class="ad-label">Espacio publicitario</span>
+</aside>
+
+<section class="calc">
+  <div class="container calc-grid">
+
+    <!-- LEFT — Pasos 1 & 2 -->
+    <div class="calc-left">
+
+      <!-- Paso 1 -->
+      <article class="step" id="paso-1">
+        <header class="step-header">
+          <span class="step-num">1</span>
+          <div>
+            <h2>¿Cuánto quieres invertir?</h2>
+            <p class="step-sub">Mueve el deslizador o escribe el monto exacto. Puedes ajustarlo en cualquier momento.</p>
+          </div>
+        </header>
+
+        <div class="amount-control">
+          <div class="amount-display">
+            <span class="amount-prefix">$</span>
+            <input
+              type="text"
+              inputmode="numeric"
+              id="amount-input"
+              value="{{ '{:,}'.format(monto_default) }}"
+              aria-label="Monto en pesos mexicanos"
+            >
+            <span class="amount-suffix">MXN</span>
+          </div>
+          <input
+            type="range"
+            id="amount-slider"
+            min="{{ monto_min }}"
+            max="{{ monto_max }}"
+            step="1000"
+            value="{{ monto_default }}"
+            aria-label="Deslizador de monto"
+          >
+          <div class="amount-marks" aria-hidden="true">
+            <span>${{ '{:,}'.format(monto_min) }}</span>
+            <span>${{ '{:,.0f}'.format(monto_max / 2) }}</span>
+            <span>${{ '{:,}'.format(monto_max) }}</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Paso 2 -->
+      <article class="step" id="paso-2">
+        <header class="step-header">
+          <span class="step-num">2</span>
+          <div>
+            <h2>¿Dónde invertirlo?</h2>
+            <p class="step-sub">
+              Estas son las instituciones disponibles, ordenadas de mayor a menor tasa.
+              Todas están pre-seleccionadas. <strong>Desactiva las que tengan condiciones
+              que no puedas o no quieras cumplir.</strong>
+            </p>
+          </div>
+        </header>
+
+        <div class="inst-toolbar">
+          <button type="button" class="link-btn" id="toggle-all">Deseleccionar todo</button>
+          <span class="inst-counter"><span id="selected-count">0</span> seleccionadas</span>
+        </div>
+
+        <p class="data-freshness">
+          <span class="dot" aria-hidden="true"></span>
+          Tasas actualizadas al <strong id="rates-date">{{ ultima_actualizacion }}</strong>
+          · <a href="#noticias">ver cambios recientes</a>
+        </p>
+
+        <div class="inst-list" id="inst-list" aria-live="polite">
+          <div class="loading">Cargando instituciones…</div>
+        </div>
+      </article>
+
+      <button type="button" class="cta" id="calc-btn">
+        <span class="cta-label">Calcular mi plan</span>
+        <span class="cta-spinner" aria-hidden="true"></span>
+      </button>
+    </div>
+
+    <!-- RIGHT — Resultados -->
+    <aside class="calc-right" id="results-wrap">
+      <div class="results-placeholder" id="results-placeholder">
+        <div class="placeholder-icon" aria-hidden="true">📊</div>
+        <h3>Tu plan aparecerá aquí</h3>
+        <p>Elige un monto, revisa las instituciones, y pulsa <strong>Calcular mi plan</strong>.</p>
+      </div>
+
+      <div class="results" id="results" hidden>
+        <div class="stale-banner" id="stale-banner" hidden>
+          Cambiaste el monto o las instituciones.
+          <button type="button" class="link-btn" id="stale-recalc">Recalcular plan →</button>
+        </div>
+        <header class="results-header">
+          <h2>Tu plan personalizado</h2>
+          <p class="results-sub">
+            Estás invirtiendo <strong id="r-total">$0 MXN</strong>.
+            Este es tu plan para maximizar lo que ganas:
+          </p>
+        </header>
+
+        <div class="metrics">
+          <div class="metric metric-primary">
+            <p class="metric-label">Tasa efectiva</p>
+            <p class="metric-value" id="r-rate">—</p>
+            <p class="metric-foot">Rendimiento promedio ponderado sobre todo tu capital.</p>
+          </div>
+          <div class="metric">
+            <p class="metric-label">Rendimiento esperado (1 año)</p>
+            <p class="metric-value" id="r-return">—</p>
+            <p class="metric-foot">Lo que ganarás al final del año si sigues el plan.</p>
+          </div>
+        </div>
+
+        <div class="delta-banner" id="delta-banner" hidden>
+          <span class="delta-icon" aria-hidden="true">↗</span>
+          <p>
+            Con este plan ganas <strong id="r-delta">—</strong> más que dejando
+            tu dinero en una cuenta tradicional al <span id="r-trad-rate">3%</span>
+            (que te daría <span id="r-trad-return">—</span>).
+          </p>
+        </div>
+
+        <div class="chart-wrap">
+          <h3 class="section-h">Distribución por institución</h3>
+          <div class="chart-host"><canvas id="alloc-chart"></canvas></div>
+        </div>
+
+        <!-- AdSense inline placeholder -->
+        <aside class="ad-slot ad-slot-inline" aria-hidden="true" data-slot="inline">
+          <span class="ad-label">Espacio publicitario</span>
+        </aside>
+
+        <div class="plan">
+          <h3 class="section-h">¿Cómo distribuirlo?</h3>
+          <p class="plan-sub">Así debes distribuir tu dinero. Sigue estas instrucciones:</p>
+          <div id="plan-cards"></div>
+        </div>
+
+        <div class="warning" id="result-warning" hidden></div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section class="noticias container" id="noticias">
+  <header class="noticias-header">
+    <h2>📰 Cambios recientes de tasas</h2>
+    <p class="noticias-sub">
+      Las instituciones ajustan sus tasas con frecuencia. Aquí registramos cada
+      cambio — «efectivo el…» indica cuándo entró en vigor la nueva tasa.
+    </p>
+  </header>
+  <div class="noticias-list" id="noticias-list">
+    <div class="loading">Cargando noticias…</div>
+  </div>
+</section>
+
+<section class="trust container">
+  <div class="trust-grid">
+    <div>
+      <div class="trust-icon" aria-hidden="true">🛡️</div>
+      <h3>Cobertura institucional</h3>
+      <p>Solo opciones reguladas. Bancos cubiertos por <a href="/ipab">IPAB hasta $3.3M MXN</a> y SOFIPOs por <a href="/ipab">Prosofipo hasta $208,000 MXN</a> por institución.</p>
+    </div>
+    <div>
+      <div class="trust-icon" aria-hidden="true">🧮</div>
+      <h3>Motor de optimización MILP</h3>
+      <p>Resuelve un problema matemático con todas las condiciones, tramos y límites simultáneamente. <a href="/como-funciona">Cómo funciona →</a></p>
+    </div>
+    <div>
+      <div class="trust-icon" aria-hidden="true">🆓</div>
+      <h3>Gratis para siempre, debajo del umbral</h3>
+      <p>Si tienes menos de $250,000 MXN, todo es gratuito sin límites. Es la población que el proyecto existe para servir.</p>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/calc.js" defer></script>
+{% endblock %}

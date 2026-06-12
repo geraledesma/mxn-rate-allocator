@@ -1,0 +1,91 @@
+{% extends "_base.html" %}
+{% block title %}Glosario financiero: términos clave para ahorradores · Tasas MX{% endblock %}
+{% block description %}Glosario claro y en español de los términos financieros que aparecen en la calculadora: tasa efectiva, ISR, tramo, SOFIPO, IPAB, capitalización y más.{% endblock %}
+
+{% block content %}
+<article class="container content">
+  <p class="eyebrow">Glosario · referencia rápida</p>
+  <h1>Glosario financiero</h1>
+  <p class="lede">
+    Los términos que aparecen en la calculadora, explicados sin tecnicismos. Diseñado
+    para que cualquier persona pueda tomar decisiones informadas sobre sus ahorros.
+  </p>
+
+  <dl class="glossary">
+    <dt id="tasa-nominal">Tasa nominal anual</dt>
+    <dd>El porcentaje que la institución promete pagar al año sobre tu depósito,
+    antes de impuestos y sin considerar el efecto del interés compuesto.</dd>
+
+    <dt id="tasa-efectiva">Tasa efectiva</dt>
+    <dd>El rendimiento real que obtienes una vez considerados la capitalización y
+    todas las condiciones. En la calculadora se muestra como promedio ponderado
+    sobre todo tu capital.</dd>
+
+    <dt id="capitalizacion">Capitalización</dt>
+    <dd>El efecto de que los intereses generen a su vez más intereses. Si tu cuenta
+    capitaliza diariamente, los intereses se suman al capital cada día y empiezan
+    a generar más intereses al día siguiente.</dd>
+
+    <dt id="tramo">Tramo (tier)</dt>
+    <dd>Un rango de saldo al que aplica una tasa específica. Por ejemplo, DiDi
+    paga 15% sobre los primeros $10,000 MXN, y otra tasa sobre los siguientes.
+    La calculadora maneja estos tramos automáticamente.</dd>
+
+    <dt id="rendimiento">Rendimiento</dt>
+    <dd>La cantidad de pesos que ganas en un período determinado (típicamente un año).
+    Se calcula sobre el monto invertido y la tasa aplicable.</dd>
+
+    <dt id="isr">ISR sobre intereses</dt>
+    <dd>El Impuesto Sobre la Renta que se retiene sobre los intereses ganados.
+    En bancos, la retención provisional es del 0.9% anual sobre el capital. En
+    SOFIPOs el tratamiento puede ser distinto según los montos.</dd>
+
+    <dt id="sofipo">SOFIPO</dt>
+    <dd><strong>Sociedad Financiera Popular.</strong> Institución regulada por la
+    CNBV que ofrece servicios de ahorro y crédito. Lee la <a href="/sofipo">guía
+    completa de SOFIPOs</a>.</dd>
+
+    <dt id="sofom">SOFOM</dt>
+    <dd>Sociedad Financiera de Objeto Múltiple. Otorga crédito pero no acepta
+    depósitos del público. <strong>No es una opción para ahorrar</strong> y no
+    aparece en la calculadora.</dd>
+
+    <dt id="ipab">IPAB</dt>
+    <dd>Instituto para la Protección al Ahorro Bancario. Cubre depósitos en bancos
+    hasta $3.3M MXN por institución. <a href="/ipab">Cómo funciona →</a></dd>
+
+    <dt id="prosofipo">Prosofipo</dt>
+    <dd>Fondo de Protección de las Sociedades Financieras Populares. Cubre depósitos
+    en SOFIPOs hasta $208,000 MXN por institución.</dd>
+
+    <dt id="nicap">NICAP</dt>
+    <dd>Nivel de Capitalización. Indicador de solvencia de una SOFIPO publicado por
+    la CNBV. Cuanto mayor, mejor — un NICAP bajo es señal de alerta.</dd>
+
+    <dt id="imor">IMOR</dt>
+    <dd>Índice de Morosidad. Porcentaje de la cartera de crédito de una institución
+    que está vencida. Cuanto menor, mejor.</dd>
+
+    <dt id="cetes">CETES</dt>
+    <dd>Certificados de la Tesorería de la Federación. Instrumento de deuda del
+    gobierno mexicano. Funciona como referencia de tasa libre de riesgo. Por ahora
+    no están integrados en la calculadora.</dd>
+
+    <dt id="udi">UDI</dt>
+    <dd>Unidad de Inversión. Una unidad de valor que se actualiza diariamente según
+    la inflación. Los límites del IPAB y Prosofipo están expresados en UDIs para que
+    se ajusten automáticamente.</dd>
+
+    <dt id="horizonte">Horizonte de inversión</dt>
+    <dd>El período durante el cual planeas mantener el dinero invertido. La
+    calculadora usa 1 año como horizonte estándar.</dd>
+
+    <dt id="liquidez">Liquidez</dt>
+    <dd>La facilidad con la que puedes acceder a tu dinero. Las cuentas de la
+    calculadora son <strong>todas líquidas</strong>: puedes retirar tu saldo
+    cuando quieras sin penalización.</dd>
+  </dl>
+
+  <p><a href="/">← Volver a la calculadora</a></p>
+</article>
+{% endblock %}

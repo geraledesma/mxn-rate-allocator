@@ -1,0 +1,91 @@
+{% extends "_base.html" %}
+{% block title %}¿Cómo funciona Tasas MX? · El motor detrás de la calculadora{% endblock %}
+{% block description %}Cómo decide la calculadora dónde poner tu dinero: el motor MILP, las restricciones que considera, las fuentes de datos y sus limitaciones.{% endblock %}
+
+{% block content %}
+<article class="container content">
+  <p class="eyebrow">Transparencia · 6 min de lectura</p>
+  <h1>¿Cómo funciona?</h1>
+  <p class="lede">
+    La calculadora resuelve un problema matemático real cada vez que pulsas
+    “Calcular mi plan”. Aquí te explicamos qué hace, qué considera, qué fuentes
+    usa, y dónde están sus límites.
+  </p>
+
+  <h2 id="el-problema">El problema que resuelve</h2>
+  <p>
+    Dado un monto, una lista de instituciones disponibles y sus condiciones (tasas,
+    tramos, requisitos, límites de cobertura), encontrar la distribución de capital
+    que <strong>maximice el rendimiento esperado</strong> al final del horizonte
+    elegido — respetando todas las restricciones simultáneamente.
+  </p>
+
+  <h2 id="motor">El motor de optimización</h2>
+  <p>
+    Internamente usamos <strong>programación lineal entera mixta (MILP)</strong>
+    a través de la librería <code>scipy.optimize</code>. Es la misma técnica que
+    usan las aerolíneas para asignar tripulaciones, las fábricas para programar
+    producción, y los bancos de inversión para construir portafolios — adaptada
+    aquí al caso simple del ahorro doméstico.
+  </p>
+  <p>
+    No es una recomendación basada en reglas heurísticas (“pon todo en la de mayor
+    tasa”). Es una solución matemáticamente óptima sobre el espacio de todas las
+    distribuciones posibles.
+  </p>
+
+  <h2 id="restricciones">Qué considera</h2>
+  <ul>
+    <li><strong>Tramos por institución:</strong> tasas que cambian cuando el saldo cruza un umbral.</li>
+    <li><strong>Límites de cobertura:</strong> $3.3M MXN por banco (IPAB), $208,000 MXN por SOFIPO (Prosofipo).</li>
+    <li><strong>Condiciones activas:</strong> compras mínimas, depósitos mensuales, membresías.</li>
+    <li><strong>Capitalización compuesta:</strong> el rendimiento se calcula con interés compuesto, no simple.</li>
+    <li><strong>Retención de ISR:</strong> se descuenta del rendimiento bruto.</li>
+  </ul>
+
+  <h2 id="datos">De dónde vienen los datos</h2>
+  <p>
+    Las tasas y condiciones provienen de fuentes públicas: páginas oficiales de las
+    instituciones, comparadores especializados, y verificación manual periódica.
+  </p>
+  <p>
+    Las tasas pueden cambiar sin previo aviso. La fecha de última actualización está
+    indicada en el pie de cada página. Si una tasa se actualizó después de tu
+    consulta, el plan puede no ser el óptimo absoluto del momento exacto.
+  </p>
+
+  <h2 id="limites">Qué no hace la calculadora</h2>
+  <ul>
+    <li>No abre cuentas por ti — solo te dice dónde abrirlas.</li>
+    <li>No transfiere dinero — eres tú quien hace cada depósito.</li>
+    <li>No te recomienda en función de tu perfil personal (riesgo, edad, metas). Es una calculadora, no un asesor.</li>
+    <li>No considera comisiones por transferencia entre tus propias cuentas.</li>
+    <li>No optimiza por liquidez diferenciada: asume que todas las cuentas son igualmente líquidas.</li>
+  </ul>
+
+  <div class="callout callout-warn">
+    <strong>Importante:</strong> esta herramienta no constituye asesoría financiera
+    ni de inversión. Verifica las condiciones directamente con cada institución
+    antes de tomar decisiones.
+  </div>
+
+  <h2 id="privacidad">Tu privacidad</h2>
+  <p>
+    La calculadora <strong>no recaba ningún dato personal</strong>. No hay registro,
+    no hay correo, no hay teléfono. El monto que ingresas se procesa en el servidor
+    y se descarta inmediatamente después de devolver el resultado.
+  </p>
+  <p>
+    Para más detalle, consulta el <a href="/privacidad">Aviso de Privacidad</a>.
+  </p>
+
+  <h2 id="codigo">Código abierto</h2>
+  <p>
+    El motor de optimización está publicado bajo licencia BUSL-1.1 en GitHub para
+    que cualquiera pueda auditarlo. Esto es parte del compromiso del proyecto:
+    transparencia total sobre qué hace y cómo lo hace.
+  </p>
+
+  <p><a href="/">← Volver a la calculadora</a></p>
+</article>
+{% endblock %}

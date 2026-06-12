@@ -2,7 +2,7 @@
 
 > The central reference for why this project exists, who it serves, and how it speaks.
 > Everything else — roadmap, architecture, milestones — is downstream of this document.
-> Last updated: 2026-06-11
+> Last updated: 2026-06-12
 
 ---
 
@@ -49,6 +49,18 @@ They are not financially unsophisticated — they simply don't have the time or 
 
 ---
 
+## Methodology
+
+The tool covers only **regulated institutions and their liquid products**:
+
+- **Institutions in scope:** Banks and SOFIPOs with active CNBV authorization. No unregulated fintechs, cooperatives, or informal savings vehicles.
+- **Products in scope:** Demand deposit accounts ("a la vista") only — cuentas de ahorro, cuentas nómina, and equivalent on-demand products.
+- **Products excluded:** Fixed-term deposits (1 month, 3 months, 1 year, or any lock-up period), CETEs, investment funds, or any product that restricts capital access.
+
+**Rationale:** The tool is designed for liquid savings. Recommending fixed-term products would introduce liquidity risk that conflicts with the tool's core promise: users can move their money at any time, with no penalty and no waiting period.
+
+---
+
 ## Voice & Tone
 
 | Principle | Description |
@@ -70,6 +82,10 @@ They are not financially unsophisticated — they simply don't have the time or 
 > Los bancos y SOFIPOs en México **cambian sus tasas constantemente** para atraer clientes nuevos, y cada uno tiene condiciones distintas que también cambian con regularidad: montos mínimos, requisitos de consumo, membresías, límites por tramo. Seguir todo eso manualmente es complicado — y la mayoría de las personas termina dejando su dinero en cuentas que pagan **2–4%** cuando existen opciones reguladas y seguras que pagan **10–15%**.
 >
 > **Esta herramienta hace el trabajo por ti.** Compara automáticamente las opciones disponibles y te dice exactamente dónde poner tu dinero para obtener el mejor rendimiento posible, con cobertura institucional garantizada (IPAB / Prosofipo). Es completamente gratuita, está en español, y no necesitas ningún conocimiento financiero previo para usarla.
+
+### Nota de actualización
+
+> Las tasas y condiciones de los bancos y SOFIPOs cambian con frecuencia. **Te recomendamos revisar esta página regularmente** — especialmente antes de renovar o mover tu dinero — para asegurarte de que tu plan sigue siendo el más conveniente.
 
 ### Paso 1 — ¿Cuánto quieres invertir?
 
