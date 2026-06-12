@@ -23,6 +23,8 @@
     rDelta: $('#r-delta'),
     rTradRate: $('#r-trad-rate'),
     rTradReturn: $('#r-trad-return'),
+    rCetesRate: $('#r-cetes-rate'),
+    rCetesReturn: $('#r-cetes-return'),
     staleBanner: $('#stale-banner'),
     staleRecalc: $('#stale-recalc'),
     noticiasList: $('#noticias-list'),
@@ -238,6 +240,10 @@
     if (data.comparativa && data.comparativa.delta > 0) {
       els.rTradRate.textContent = data.comparativa.tasa_tradicional_label;
       els.rTradReturn.textContent = data.comparativa.rendimiento_tradicional_label;
+      if (data.comparativa.tasa_cetes_label) {
+        els.rCetesRate.textContent = data.comparativa.tasa_cetes_label;
+        els.rCetesReturn.textContent = data.comparativa.rendimiento_cetes_label;
+      }
       animateNumber(els.rDelta, 0, data.comparativa.delta, (v) => fmtMXN(v));
       els.deltaBanner.hidden = false;
     } else {

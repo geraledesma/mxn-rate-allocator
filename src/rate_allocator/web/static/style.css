@@ -171,6 +171,18 @@ button { font-family: inherit; cursor: pointer; }
 }
 .brand-name { letter-spacing: -.01em; }
 .brand-accent { color: var(--primary); }
+.brand-by {
+  font-size: .72rem;
+  font-weight: 500;
+  color: var(--ink-mute);
+  letter-spacing: .01em;
+  align-self: flex-end;
+  padding-bottom: 2px;
+}
+.site-footer .brand-by { color: rgba(255, 255, 255, .55); }
+@media (max-width: 480px) {
+  .site-header .brand-by { display: none; }
+}
 
 .nav-links {
   list-style: none;

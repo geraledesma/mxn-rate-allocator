@@ -61,6 +61,72 @@ The tool covers only **regulated institutions and their liquid products**:
 
 ---
 
+## Brand & Visual Identity — Merqurio
+
+> Working names (placeholders, not final): tool = **"Calculadora de Tasas MX"**, parent brand = **"Merqurio"**.
+> Merqurio is the umbrella for a future ecosystem of financial tools; this calculator is product #1.
+> Strategy: branded house — every product deposits trust into the same name.
+> Pending: IMPI trademark search + domain check for Merqurio before the name hardens.
+
+### The central metaphor: el tejido
+
+The allocator interlaces money across institutions the way a weaver interlaces threads:
+**each institution's income stream is un hilo; together they weave the huipil — the portfolio.**
+A single thread is fragile; the woven fabric holds. This is not decoration — the metaphor IS
+the product mechanism (diversification across IPAB/Prosofipo-covered institutions), which makes
+it an unfakeable brand asset: no foreign fintech can copy it without copying the product.
+
+Expressions of the metaphor (keep scarce — scarcity is the signature):
+- **El hilo**: 3px woven band (rosa #D6336C / cempasúchil #E8A33D / verde #1E7A4D / azul #3B6EA5)
+  under the site header. One placement in-app, ever. Scales as the system-wide Merqurio
+  signature (favicon, social cards, email footers, future products — same band, no per-product
+  permutations).
+- **Weaving loader**: the CTA progress indicator shows threads passing through — motion with a job.
+- **Copy**: "cada institución es un hilo; juntas tejen tu seguridad."
+
+### Identity decisions (2026-06-11)
+
+| Element | Decision | Rationale |
+|---|---|---|
+| Background | Warm paper `#FAF9F5` / ivory `#F0EEE6`, always light — **no dark mode** | Dark variant read as "green-and-black trading app"; one controlled appearance |
+| Brand / interaction / gains | Forest green `#1E7A4D` (dark `#175F3C`) — the only brand color | Money/growth/hope; dark + desaturated avoids both crypto-mint and dollar-bill green |
+| Warm accent | **Rosa mexicano `#D6336C`** (variant B+, chosen direction) — eyebrows, step numbers, trust icons, highlight pills, wordmark accent | Cultural pride (CDMX, Ramírez Vázquez), distinctly Mexican; saturated rosa ≠ soft pink |
+| Typography | Figtree (display, 600/700) + Inter (UI/body); tabular numerals for all money figures | Friendly humanist sans; serif rejected (affluent/editorial coding), tight tracking rejected (startup coding) |
+| Motion | **Motion with a job, never ambient.** Every animation answers "what did the user just do?" Results rise-in 220ms, plan-card stagger 60ms, hilo weaves in once per load. Ambient/background animation rejected (periphery attention, low-end Android jank, crypto-line cliché). All behind `prefers-reduced-motion`. | |
+
+### Rejected directions (do not revisit without new evidence)
+
+- Mint green `#00B779` — crypto/trading coding (saturation, not hue, was the problem).
+- Navy + serif institutional — banks are a rejection memory for the target user, not a trust anchor.
+- Banknote-pastel palette — too subtle to register, fails contrast, doesn't travel to LatAm.
+- **Soft pink as primary** — gender-coded ("productos para mujer"), flor-de-la-abundancia scam
+  adjacency, warmth without competence. Rosa mexicano as accent is the sanctioned vehicle.
+- Lotería aesthetics (chance ≠ planning), amulets (magical vs institutional protection),
+  nopal/papel picado/talavera surfaces (kitsch), tanda mechanics (pyramid costume — borrow its
+  commitment psychology only).
+
+### Cultural register (use in copy, sparingly)
+
+- **el guardadito** — "tu guardadito merece crecer" (hero)
+- **la quincena** — deposits framed per quincena, the true rhythm of Mexican financial life
+- **rendir** — "hacer que rinda tu dinero"
+- **siembra y cosecha** — the milpa's patience, for long-term framing
+- **el cochinito** — the user's *origin story* ("del cochinito al IPAB"), never the brand identity
+- Brand lore reserves (About page / Merqurio storytelling): el ahuehuete (slow growth, deep
+  roots, shelter), cacao (wealth that grew on trees in Mesoamerica)
+
+### Benchmark policy
+
+Comparisons shown to the user form a ladder that teaches the rate hierarchy:
+**cuenta tradicional (3%) → CETES 28 días (curated constant, dated) → tu plan.**
+The traditional account is the emotional comparison (the user's lived reality); CETES is the
+credibility benchmark (beating the government's risk-free rate answers "¿demasiado bueno para
+ser cierto?"). CETES remains excluded as a *product* (see Methodology — liquidity) but serves
+as a *reference*. The CETES rate is curated manually like institution rates; update it
+alongside them (`CETES_28_RATE` in `web/app.py`).
+
+---
+
 ## Voice & Tone
 
 | Principle | Description |

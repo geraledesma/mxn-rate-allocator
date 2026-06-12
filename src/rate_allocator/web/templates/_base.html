@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{% block title %}MXN Rate Allocator — Maximiza el rendimiento de tus ahorros{% endblock %}</title>
+  <title>{% block title %}Calculadora de Tasas MX por Merqurio — Tu guardadito, seguro y rindiendo más{% endblock %}</title>
   <meta name="description" content="{% block description %}Calculadora gratuita que distribuye tu dinero entre bancos y SOFIPOs de México para maximizar tu rendimiento. En español, sin registro.{% endblock %}">
   <meta name="theme-color" content="#faf9f5">
   <meta name="format-detection" content="telephone=no">
@@ -15,7 +15,7 @@
   <link rel="canonical" href="{{ request.url }}">
 
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Tasas MX">
+  <meta property="og:site_name" content="Tasas MX · por Merqurio">
   <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
   <meta property="og:description" content="{{ self.description() }}">
   <meta property="og:url" content="{{ request.url }}">
@@ -26,7 +26,8 @@
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "Tasas MX",
+    "name": "Calculadora de Tasas MX",
+    "creator": { "@type": "Organization", "name": "Merqurio" },
     "applicationCategory": "FinanceApplication",
     "operatingSystem": "Web",
     "inLanguage": "es-MX",
@@ -63,6 +64,7 @@
       <a class="brand" href="/">
         <span class="brand-mark" aria-hidden="true">$</span>
         <span class="brand-name">Tasas <span class="brand-accent">MX</span></span>
+        <span class="brand-by">por Merqurio</span>
       </a>
       <nav aria-label="Navegación principal">
         <ul class="nav-links">
@@ -100,6 +102,7 @@
         <div class="brand brand-footer">
           <span class="brand-mark" aria-hidden="true">$</span>
           <span class="brand-name">Tasas <span class="brand-accent">MX</span></span>
+          <span class="brand-by">por Merqurio</span>
         </div>
         <p class="footer-tagline">
           Inclusión financiera para México. Gratis, en español, sin registro.
@@ -126,7 +129,7 @@
       </div>
     </div>
     <div class="container footer-copy">
-      <small>© {{ anio_actual }} Tasas MX · Hecho con propósito de inclusión financiera.</small>
+      <small>© {{ anio_actual }} Merqurio · Calculadora de Tasas MX · Hecho con propósito de inclusión financiera.</small>
     </div>
   </footer>
 
