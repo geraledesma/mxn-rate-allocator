@@ -1,6 +1,6 @@
 {% extends "_base.html" %}
 {% block title %}CETES vs cuentas a la vista: cuándo conviene cada uno · Tasas MX{% endblock %}
-{% block description %}CETES pagan bien, pero te amarran el capital. Cuentas a la vista pagan similar con liquidez total. Te explicamos cuándo usar cada uno.{% endblock %}
+{% block description %}CETES pagan bien, pero te amarran el capital. Cuentas a la vista pagan similar con liquidez total. Te explicamos cuándo usar cada uno y por qué importa la diferencia.{% endblock %}
 
 {% block content %}
 <!-- AdSense top banner — reemplazar con unidad real cuando la cuenta sea aprobada -->
@@ -12,7 +12,11 @@
   <p class="eyebrow">Comparativa · 5 min de lectura</p>
   <h1>CETES vs cuentas a la vista: cuándo conviene cada uno</h1>
   <p class="lede">
-    <!-- TODO: redactar lede -->
+    CETES son seguros, sencillos y respaldan la tasa libre de riesgo en México. Las
+    cuentas a la vista en bancos y SOFIPOs pueden pagar tasas similares o más altas —
+    con la ventaja de que tu dinero está disponible cualquier día sin trámites. Ninguno
+    es mejor en términos absolutos: depende de si necesitas liquidez o puedes planear
+    con un horizonte fijo.
   </p>
 
   <aside class="content-toc">
@@ -23,17 +27,136 @@
       <li><a href="#diferencia">La diferencia clave: liquidez vs. tasa</a></li>
       <li><a href="#cuando-cetes">¿Cuándo convienen los CETES?</a></li>
       <li><a href="#cuando-vista">¿Cuándo convienen las cuentas a la vista?</a></li>
-      <li><a href="#calculadora">Por qué la calculadora usa CETES como referencia</a></li>
+      <li><a href="#referencia">Por qué la calculadora usa CETES como referencia</a></li>
     </ul>
   </aside>
 
-  <!-- TODO: redactar secciones según content-briefs.md -->
+  <h2 id="cetes">¿Qué son los CETES y cómo funcionan?</h2>
+  <p>
+    Los CETES (Certificados de la Tesorería de la Federación) son instrumentos de deuda
+    del gobierno federal mexicano. Cuando compras CETES, le prestas dinero al gobierno
+    por un plazo definido — 28, 91, 182 o 364 días — y al vencimiento recibes tu capital
+    más los intereses acordados.
+  </p>
+  <p>
+    Son la inversión más segura en México: el riesgo de que el gobierno federal
+    no pague es prácticamente nulo. Por eso su tasa funciona
+    como referencia del "rendimiento sin riesgo" — el piso contra el cual se comparan
+    todas las demás opciones. La tasa vigente se publica en el sitio de
+    <a href="https://www.banxico.org.mx" target="_blank" rel="noopener noreferrer">Banxico</a>.
+  </p>
+  <p>
+    El acceso es directo a través de CetesDirecto, la plataforma del gobierno, sin
+    comisiones y desde $100 MXN.
+  </p>
+
+  <h2 id="vista">¿Qué son las cuentas a la vista?</h2>
+  <p>
+    Las cuentas a la vista — cuentas de ahorro, cuentas nómina, cajitas digitales — son
+    depósitos que puedes retirar en cualquier momento, sin plazo mínimo y sin penalización.
+  </p>
+  <p>
+    A diferencia de los CETES, no hay fecha de vencimiento: tu dinero está disponible
+    mañana, la próxima semana, o cuando lo necesites. Esta liquidez es su ventaja
+    principal. Históricamente pagaban tasas más bajas que los instrumentos a plazo,
+    pero la entrada de <a href="/sofipo">SOFIPOs</a> digitales cambió esa dinámica:
+    hoy existen cuentas a la vista que compiten directamente con los plazos fijos
+    en rendimiento, sin sacrificar disponibilidad.
+  </p>
+
+  <h2 id="diferencia">La diferencia clave: liquidez vs. tasa</h2>
+  <table>
+    <thead>
+      <tr>
+        <th></th>
+        <th>CETES 28 días</th>
+        <th>Cuentas a la vista (SOFIPOs)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">Tasa</th>
+        <td>Varía (ver Banxico)</td>
+        <td>Hasta 15% en primeros tramos</td>
+      </tr>
+      <tr>
+        <th scope="row">Liquidez</th>
+        <td>Capital disponible al vencimiento (mín. 28 días)</td>
+        <td>Retiro disponible cualquier día</td>
+      </tr>
+      <tr>
+        <th scope="row">Cobertura</th>
+        <td>Deuda soberana (sin límite de monto)</td>
+        <td>IPAB hasta $3.3M / Prosofipo hasta $208K</td>
+      </tr>
+      <tr>
+        <th scope="row">ISR</th>
+        <td>Retención automática</td>
+        <td>Retención automática</td>
+      </tr>
+      <tr>
+        <th scope="row">Mínimo</th>
+        <td>$100 MXN</td>
+        <td>Varía (desde $0 en muchas instituciones)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 id="cuando-cetes">¿Cuándo convienen los CETES?</h2>
+  <p>Los CETES son la mejor opción cuando:</p>
+  <ul>
+    <li>Tienes un horizonte definido y sabes que no vas a necesitar ese dinero antes del vencimiento.</li>
+    <li>Tu monto supera los límites de cobertura del IPAB o Prosofipo — los CETES son deuda soberana, sin límite de protección.</li>
+    <li>Prefieres la simplicidad: una sola institución (el gobierno), un solo plazo, sin condiciones de consumo ni membresías.</li>
+    <li>Estás construyendo una reserva de largo plazo que no vas a tocar.</li>
+  </ul>
+  <p>
+    La desventaja es concreta: si necesitas el dinero antes del vencimiento, tendrás
+    que venderlos en el mercado secundario, y el rendimiento puede ser menor al acordado.
+  </p>
+
+  <h2 id="cuando-vista">¿Cuándo convienen las cuentas a la vista?</h2>
+  <p>Las cuentas a la vista son la mejor opción cuando:</p>
+  <ul>
+    <li>Tu guardadito es tu fondo de emergencia — necesitas poder retirar sin trámites ni esperas.</li>
+    <li>Recibes ingresos por quincena y quieres que rindan en los días entre depósito y gasto.</li>
+    <li>Quieres distribuir entre varias instituciones para maximizar cobertura y rendimiento al mismo tiempo.</li>
+    <li>No puedes o no quieres comprometerte con un plazo fijo.</li>
+  </ul>
+  <p>
+    La calculadora hace eso: distribuye tu capital entre cuentas líquidas para que
+    tu guardadito rinda lo más posible sin sacrificar disponibilidad, siempre dentro
+    de los límites de cobertura del <a href="/ipab">IPAB y Prosofipo</a>.
+  </p>
+
+  <h2 id="referencia">Por qué la calculadora usa CETES como referencia pero no como producto</h2>
+  <p>
+    En la calculadora verás siempre una comparación con "CETES 28 días". Ese número es
+    el <em>benchmark</em> — la tasa del gobierno es la pregunta más honesta que puedes
+    hacerte antes de mover tu dinero: ¿mi plan gana más que lo que pagaría el gobierno
+    sin riesgo?
+  </p>
+  <p>
+    Si la respuesta es sí, el plan tiene sentido. Si no, vale la pena reconsiderar.
+  </p>
+  <p>
+    CETES no aparecen como opción dentro de la calculadora porque implicarían liquidez
+    restringida — y la promesa de la herramienta es que cada peso de tu plan esté
+    disponible cuando lo necesites. Puedes leer más sobre este criterio en
+    <a href="/como-funciona">¿Cómo funciona?</a>
+  </p>
 
   <!-- AdSense in-article placeholder — reemplazar con unidad real cuando la cuenta sea aprobada -->
   <aside class="ad-slot ad-slot-inline" aria-hidden="true" data-slot="inline">
     <span class="ad-label">Espacio publicitario</span>
   </aside>
 
-  <p><a href="/">← Volver a la calculadora</a></p>
+  <aside class="article-cta">
+    <h2>¿Quieres comparar opciones líquidas?</h2>
+    <p>La calculadora distribuye tu guardadito entre cuentas a la vista para que rinda lo más posible sin amarrar tu dinero — gratis y sin registro.</p>
+    <a class="btn" href="/">Calcular mi plan →</a>
+  </aside>
+
+  <p><a class="back-link" href="/">← Volver a la calculadora</a></p>
 </article>
 {% endblock %}

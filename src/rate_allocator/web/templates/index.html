@@ -121,8 +121,15 @@
           · <a href="#noticias">ver cambios recientes</a>
         </p>
 
-        <div class="inst-list" id="inst-list" aria-live="polite">
-          <div class="loading">Cargando instituciones…</div>
+        <div class="inst-list" id="inst-list" aria-live="polite" aria-busy="true">
+          <div class="inst-skeleton" aria-hidden="true">
+            <div class="skel-row"></div>
+            <div class="skel-row"></div>
+            <div class="skel-row"></div>
+            <div class="skel-row"></div>
+            <div class="skel-row"></div>
+          </div>
+          <span class="sr-only">Cargando instituciones…</span>
         </div>
       </article>
 
@@ -135,7 +142,14 @@
     <!-- RIGHT — Resultados -->
     <aside class="calc-right" id="results-wrap">
       <div class="results-placeholder" id="results-placeholder">
-        <div class="placeholder-icon" aria-hidden="true">📊</div>
+        <div class="placeholder-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3v18h18"/>
+            <rect x="7" y="12" width="3" height="5" rx="1"/>
+            <rect x="12" y="8" width="3" height="9" rx="1"/>
+            <rect x="17" y="5" width="3" height="12" rx="1"/>
+          </svg>
+        </div>
         <h3>Tu plan aparecerá aquí</h3>
         <p>Elige un monto, revisa las instituciones, y pulsa <strong>Calcular mi plan</strong>.</p>
       </div>
@@ -215,17 +229,32 @@
 <section class="trust container">
   <div class="trust-grid">
     <div>
-      <div class="trust-icon" aria-hidden="true">🛡️</div>
+      <div class="trust-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
       <h3>Cobertura institucional</h3>
       <p>Solo opciones reguladas. Bancos cubiertos por <a href="/ipab">IPAB hasta $3.3M MXN</a> y SOFIPOs por <a href="/ipab">Prosofipo hasta $208,000 MXN</a> por institución.</p>
     </div>
     <div>
-      <div class="trust-icon" aria-hidden="true">🧵</div>
+      <div class="trust-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 3v18M12 3v18M18 3v18"/>
+          <path d="M3 8h18M3 16h18"/>
+        </svg>
+      </div>
       <h3>Tu plan, tejido a tu medida</h3>
       <p>Tomamos en cuenta las condiciones, montos mínimos y límites de cada institución, y repartimos tu dinero como hilos en un telar: cada institución es un hilo; juntas tejen tu seguridad. <a href="/como-funciona">Cómo funciona →</a></p>
     </div>
     <div>
-      <div class="trust-icon" aria-hidden="true">🆓</div>
+      <div class="trust-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0l-6.2-6.2a2 2 0 0 1-.6-1.4V5a2 2 0 0 1 2-2h4.8a2 2 0 0 1 1.4.6l8.8 8.8a2 2 0 0 1 0 2z"/>
+          <circle cx="8.5" cy="8.5" r="1.4"/>
+        </svg>
+      </div>
       <h3>Gratis para siempre, debajo del umbral</h3>
       <p>Si tienes menos de $250,000 MXN, todo es gratuito sin límites. Es la población que el proyecto existe para servir.</p>
     </div>

@@ -39,6 +39,9 @@
 
   const fmtMXN = (n) => '$' + Math.round(n).toLocaleString('es-MX') + ' MXN';
   const fmtNumber = (n) => Math.round(n).toLocaleString('es-MX');
+  // Metric figures keep the unit as a small rider so it never wraps at full size.
+  const fmtMXNUnit = (n) => '$' + Math.round(n).toLocaleString('es-MX') + '<span class="metric-unit">MXN</span>';
+  const fmtPctUnit = (v) => (v * 100).toFixed(2) + '%<span class="metric-unit">anual</span>';
   const parseAmount = (s) => {
     const cleaned = String(s).replace(/[^\d]/g, '');
     if (!cleaned) return 0;
@@ -126,6 +129,7 @@
       `;
     }).join('');
     els.list.innerHTML = html;
+    els.list.setAttribute('aria-busy', 'false');
 
     els.list.querySelectorAll('.inst').forEach((row) => {
       const checkbox = row.querySelector('.inst-check');
@@ -232,8 +236,8 @@
       return;
     }
 
-    animateNumber(els.rRate, 0, data.tasa_efectiva, (v) => (v * 100).toFixed(2) + '% anual');
-    animateNumber(els.rReturn, 0, data.rendimiento_esperado, (v) => fmtMXN(v));
+    animateNumber(els.rRate, 0, data.tasa_efectiva, fmtPctUnit);
+    animateNumber(els.rReturn, 0, data.rendimiento_esperado, fmtMXNUnit);
 
     if (data.comparativa && data.comparativa.delta > 0) {
       els.rCetesRate.textContent = data.comparativa.tasa_cetes_label;
@@ -379,7 +383,7 @@
       const p = Math.min((t - start) / duration, 1);
       const eased = 1 - Math.pow(1 - p, 3);
       const value = from + (to - from) * eased;
-      el.textContent = formatter(value);
+      el.innerHTML = formatter(value);
       if (p < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);

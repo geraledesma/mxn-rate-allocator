@@ -12,7 +12,11 @@
   <p class="eyebrow">Impuestos · 4 min de lectura</p>
   <h1>ISR sobre intereses: qué es, cuánto te retienen y cómo calcularlo</h1>
   <p class="lede">
-    <!-- TODO: redactar lede -->
+    Cada vez que ganas intereses en tu cuenta de ahorro o en una SOFIPO, el gobierno
+    retiene una parte antes de que llegue a tu bolsillo. No es un cobro extra de tu
+    banco: es el ISR sobre intereses, y todas las instituciones reguladas están
+    obligadas a aplicarlo. Qué es, cuánto es, y por qué la calculadora ya lo
+    descuenta por ti.
   </p>
 
   <aside class="content-toc">
@@ -26,13 +30,101 @@
     </ul>
   </aside>
 
-  <!-- TODO: redactar secciones según content-briefs.md -->
+  <h2 id="que-es">¿Qué es el ISR sobre intereses?</h2>
+  <p>
+    El Impuesto Sobre la Renta aplica a casi todos los ingresos en México, incluyendo
+    los intereses que genera tu dinero ahorrado. Cuando tienes capital en un banco o
+    SOFIPO y ganas intereses, esa ganancia es ingreso gravable.
+  </p>
+  <p>
+    La mecánica es simple: la institución donde tienes tu cuenta actúa como retenedor.
+    Descuenta el ISR directamente antes de abonarte los intereses. No tienes que hacer
+    ningún cálculo ni pago separado — el descuento es automático y aparece en tu estado
+    de cuenta.
+  </p>
+
+  <h2 id="cuanto">¿Cuánto te retienen?</h2>
+  <p>
+    Para cuentas en bancos comerciales, la retención provisional es del
+    <strong>0.9% anual sobre el saldo promedio diario</strong> — no sobre los intereses
+    ganados, sino sobre el capital depositado.
+  </p>
+  <div class="callout">
+    <strong>Ejemplo:</strong> $100,000 MXN en cuenta durante un año.<br>
+    Retención de ISR: $100,000 × 0.9% = <strong>$900 MXN</strong><br>
+    Si la cuenta paga 12% bruto ($12,000 MXN), el rendimiento neto de ISR
+    sería aprox. <strong>$11,100 MXN</strong>.
+  </div>
+  <p>
+    Para <a href="/sofipo">SOFIPOs</a> el tratamiento puede variar según los montos
+    y el régimen fiscal del titular. Si tienes dudas sobre tu situación fiscal
+    específica, consulta directamente con el
+    <a href="https://www.sat.gob.mx" target="_blank" rel="noopener noreferrer">SAT</a>
+    o un contador.
+  </p>
+
+  <h2 id="quien">¿Quién lo retiene y cuándo?</h2>
+  <p>
+    La propia institución financiera realiza la retención de forma automática, mes a mes.
+    Aparece en tu estado de cuenta como "ISR retenido" o una leyenda similar. No es un
+    cobro adicional — es un anticipo del impuesto que ya estabas obligado a pagar.
+  </p>
+  <p>
+    Al cierre del año fiscal, si presentas declaración anual, el ISR retenido por
+    intereses queda acreditado. Para muchas personas con ingresos por debajo del umbral
+    de declaración, la retención provisional es el pago definitivo — sin trámite extra.
+  </p>
+
+  <h2 id="efecto">Cómo afecta tu rendimiento real</h2>
+  <p>
+    El ISR no es el único descuento. Tres factores determinan lo que realmente recibes
+    al final del año:
+  </p>
+  <ol>
+    <li><strong>Tasa nominal</strong> — lo que promete la institución.</li>
+    <li><strong>Menos ISR retenido</strong> — el 0.9% sobre tu saldo en bancos.</li>
+    <li><strong>Menos inflación</strong> — el poder adquisitivo que pierdes si tu rendimiento no la supera.</li>
+  </ol>
+  <div class="callout">
+    <strong>Ejemplo con $100,000 MXN · tasa nominal 12% · inflación 4.5%:</strong><br>
+    Intereses brutos estimados: ~$12,000 MXN<br>
+    ISR retenido: ~$900 MXN<br>
+    Intereses netos de ISR: ~$11,100 MXN<br>
+    Rendimiento real (descontando inflación): ~$6,600 MXN
+  </div>
+  <p>
+    Aun así, un rendimiento real positivo sobre un guardadito 100% líquido es
+    significativamente mejor que el 2–4% de las cuentas de ahorro tradicionales —
+    que también pagan ISR, pero sobre tasas mucho más bajas.
+  </p>
+  <p>
+    La tasa de referencia del ahorro sin riesgo en México es el CETES 28 días,
+    publicada por
+    <a href="https://www.banxico.org.mx" target="_blank" rel="noopener noreferrer">Banxico</a>.
+    Compara siempre tu rendimiento neto contra ese número — si no lo supera, el costo
+    de oportunidad habla por sí solo.
+  </p>
+
+  <h2 id="calculadora">Cómo lo maneja la calculadora</h2>
+  <p>
+    La calculadora descuenta el ISR automáticamente en cada escenario que calcula.
+    Cuando ves el "Rendimiento esperado (1 año)" en tu plan personalizado, ya es un
+    número neto de retención provisional — no tienes que calcularlo por separado ni
+    ajustar el resultado. Si quieres revisar los supuestos exactos que aplicamos,
+    están detallados en <a href="/como-funciona">¿Cómo funciona?</a>
+  </p>
 
   <!-- AdSense in-article placeholder — reemplazar con unidad real cuando la cuenta sea aprobada -->
   <aside class="ad-slot ad-slot-inline" aria-hidden="true" data-slot="inline">
     <span class="ad-label">Espacio publicitario</span>
   </aside>
 
-  <p><a href="/">← Volver a la calculadora</a></p>
+  <aside class="article-cta">
+    <h2>El rendimiento que ves ya es neto de ISR</h2>
+    <p>No tienes que hacer cuentas. La calculadora descuenta la retención por ti y te muestra lo que de verdad ganarías al año.</p>
+    <a class="btn" href="/">Calcular mi plan →</a>
+  </aside>
+
+  <p><a class="back-link" href="/">← Volver a la calculadora</a></p>
 </article>
 {% endblock %}
