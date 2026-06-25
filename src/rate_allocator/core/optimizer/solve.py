@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 from scipy.optimize import Bounds, LinearConstraint, milp
@@ -11,7 +12,10 @@ from rate_allocator.core.finance.costs import (
     tier_activation_cost,
     tier_constraint_cost_over_horizon,
 )
-from rate_allocator.core.finance.rates import discrete_compounding_accumulation_factor
+from rate_allocator.core.finance.rates import (
+    discrete_compounding_accumulation_factor,
+    holding_simple_rate_from_annual,
+)
 from rate_allocator.core.finance.taxes import (
     estimated_isr_tax_over_horizon,
     withholding_tax_over_horizon,
@@ -23,6 +27,8 @@ from rate_allocator.domain.models import (
     Tier,
 )
 
+CompoundingMode = Literal["simple", "compound"]
+
 
 def allocate(
     total: float,
@@ -31,9 +37,10 @@ def allocate(
     horizon_years: float = 1.0,
     periods_per_year: int = 365,
     regulatory_rules: RegulatoryRules | None = None,
+    compounding: CompoundingMode = "compound",
 ) -> AllocationResult:
     """Find optimal allocation maximizing net horizon return."""
-    _validate_allocate_inputs(total, institutions, horizon_years, periods_per_year)
+    _validate_allocate_inputs(total, institutions, horizon_years, periods_per_year, compounding)
     if total == 0:
         return _empty_result(institutions)
     rules = regulatory_rules or RegulatoryRules()
@@ -46,6 +53,7 @@ def allocate(
         horizon_years,
         periods_per_year,
         rules,
+        compounding,
     )
     solution = _solve_milp(institutions, total, var_map, objective, rules)
     return _extract_result(
@@ -55,6 +63,7 @@ def allocate(
         horizon_years,
         periods_per_year,
         rules,
+        compounding,
     )
 
 
@@ -87,6 +96,7 @@ def _validate_allocate_inputs(
     institutions: list[Institution],
     horizon_years: float,
     periods_per_year: int,
+    compounding: CompoundingMode,
 ) -> None:
     if total < 0:
         raise ValueError("Total must be non-negative")
@@ -100,6 +110,8 @@ def _validate_allocate_inputs(
         raise ValueError("horizon_years must be non-negative")
     if periods_per_year < 1:
         raise ValueError("periods_per_year must be at least 1")
+    if compounding not in ("simple", "compound"):
+        raise ValueError(f"compounding must be 'simple' or 'compound', got {compounding!r}")
 
 
 def _build_var_map(institutions: list[Institution]) -> dict[tuple[str, int], int]:
@@ -119,6 +131,7 @@ def _build_objective(
     horizon_years: float,
     periods_per_year: int,
     regulatory_rules: RegulatoryRules,
+    compounding: CompoundingMode,
 ) -> ObjectiveParts:
     n_vars = len(var_map)
     c = np.zeros(n_vars)
@@ -137,6 +150,7 @@ def _build_objective(
                 horizon_years,
                 periods_per_year,
                 regulatory_rules,
+                compounding,
             )
             next_rate = _next_tier_rate(
                 inst,
@@ -145,6 +159,7 @@ def _build_objective(
                 horizon_years,
                 periods_per_year,
                 regulatory_rules,
+                compounding,
             )
             capacity_priority = tier_capacity / max_capacity if max_capacity else 0.0
             c[var_idx] = -(current_rate - next_rate) - epsilon * capacity_priority
@@ -175,6 +190,7 @@ def _next_tier_rate(
     horizon_years: float,
     periods_per_year: int,
     regulatory_rules: RegulatoryRules,
+    compounding: CompoundingMode,
 ) -> float:
     if tier_index + 1 >= len(institution.tiers):
         return 0.0
@@ -186,6 +202,7 @@ def _next_tier_rate(
         horizon_years,
         periods_per_year,
         regulatory_rules,
+        compounding,
     )
 
 
@@ -196,8 +213,9 @@ def _objective_rate(
     horizon_years: float,
     periods_per_year: int,
     regulatory_rules: RegulatoryRules,
+    compounding: CompoundingMode,
 ) -> float:
-    gross = _marginal_return_per_unit(tier, horizon_years, periods_per_year)
+    gross = _marginal_return_per_unit(tier, horizon_years, periods_per_year, compounding)
     if allocation_hint <= 0:
         return gross
     nominal_gain_hint = allocation_hint * gross
@@ -218,12 +236,11 @@ def _objective_rate(
 
 
 def _marginal_return_per_unit(
-    tier: Tier, horizon_years: float, periods_per_year: int
+    tier: Tier, horizon_years: float, periods_per_year: int, compounding: CompoundingMode
 ) -> float:
-    factor = discrete_compounding_accumulation_factor(
-        tier.rate, horizon_years, periods_per_year
-    )
-    return factor - 1.0
+    if compounding == "simple":
+        return holding_simple_rate_from_annual(tier.rate, horizon_years)
+    return discrete_compounding_accumulation_factor(tier.rate, horizon_years, periods_per_year) - 1.0
 
 
 def _build_budget_constraint(
@@ -533,6 +550,7 @@ def _extract_result(
     horizon_years: float,
     periods_per_year: int,
     regulatory_rules: RegulatoryRules,
+    compounding: CompoundingMode,
 ) -> AllocationResult:
     allocations: dict[str, list[float]] = {}
     constraint_info: dict[str, list[dict]] = {}
@@ -555,6 +573,7 @@ def _extract_result(
                 horizon_years,
                 periods_per_year,
                 regulatory_rules,
+                compounding,
             )
         )
         total_return += inst_return
@@ -624,6 +643,7 @@ def _institution_return_and_cost(
     horizon_years: float,
     periods_per_year: int,
     regulatory_rules: RegulatoryRules,
+    compounding: CompoundingMode,
 ) -> tuple[float, float, float, float]:
     gross_return = 0.0
     expenses = 0.0
@@ -631,7 +651,7 @@ def _institution_return_and_cost(
     for tier, amount in zip(institution.tiers, tier_amounts, strict=True):
         principal_amount += amount
         gross_return += amount * _marginal_return_per_unit(
-            tier, horizon_years, periods_per_year
+            tier, horizon_years, periods_per_year, compounding
         )
         expenses += tier_activation_cost(tier, amount, horizon_years)
     taxes = estimated_isr_tax_over_horizon(

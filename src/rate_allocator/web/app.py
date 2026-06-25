@@ -16,6 +16,7 @@ from rate_allocator import Institution, RegulatoryRules, allocate
 from rate_allocator.adapters.noticias_yaml import load_noticias_yaml
 from rate_allocator.adapters.regulatory_loader import load_regulatory_rules_from_yaml
 from rate_allocator.adapters.yaml_loader import load_institutions_with_overrides
+from rate_allocator.core.finance.rates import discrete_compounding_accumulation_factor
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_FILE = REPO_ROOT / "data" / "sample1.yaml"
@@ -28,6 +29,7 @@ DB_URL_ENV = "RATE_ALLOCATOR_DB_URL"
 # Curated manually like institution rates; update alongside them.
 # Last set 2026-06-12 (verify at banxico.org.mx).
 CETES_28_RATE = 0.0625
+_PERIODS_PER_YEAR = 365
 NOTICIAS_LIMIT = 30
 
 WEB_DIR = Path(__file__).resolve().parent
@@ -248,6 +250,16 @@ async def page_privacidad(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "privacidad.html", _page_context(request))
 
 
+@app.get("/acerca", response_class=HTMLResponse)
+async def page_acerca(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "acerca.html", _page_context(request))
+
+
+@app.get("/terminos", response_class=HTMLResponse)
+async def page_terminos(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "terminos.html", _page_context(request))
+
+
 # ── routes: API ──────────────────────────────────────────────────────────────
 
 
@@ -286,7 +298,7 @@ async def post_allocate(body: AllocateRequest) -> JSONResponse:
         total=body.total,
         institutions=selected,
         horizon_years=body.horizonte_anos,
-        periods_per_year=365,
+        periods_per_year=_PERIODS_PER_YEAR,
         regulatory_rules=rules,
     )
 
@@ -302,7 +314,7 @@ async def post_allocate(body: AllocateRequest) -> JSONResponse:
         if total_inst < 1:
             continue
         inst_interest = sum(
-            amt * tier.rate
+            amt * (discrete_compounding_accumulation_factor(tier.rate, body.horizonte_anos, _PERIODS_PER_YEAR) - 1.0)
             for amt, tier in zip(tier_amounts, inst.tiers, strict=True)
         )
         inst_rows.append((inst, tier_amounts, total_inst, inst_interest))
@@ -331,8 +343,8 @@ async def post_allocate(body: AllocateRequest) -> JSONResponse:
                 ),
                 "tasa": float(tier.rate),
                 "tasa_label": f"{tier.rate:.2%}",
-                "rendimiento": float(amt * tier.rate),
-                "rendimiento_label": _fmt_mxn(amt * tier.rate),
+                "rendimiento": float(amt * (discrete_compounding_accumulation_factor(tier.rate, body.horizonte_anos, _PERIODS_PER_YEAR) - 1.0)),
+                "rendimiento_label": _fmt_mxn(amt * (discrete_compounding_accumulation_factor(tier.rate, body.horizonte_anos, _PERIODS_PER_YEAR) - 1.0)),
             })
 
         asignaciones.append({
@@ -362,7 +374,7 @@ async def post_allocate(body: AllocateRequest) -> JSONResponse:
 
     # Mission impact framing (FOUNDATION): show the user the value delivered —
     # what this plan earns vs. CETES 28, the risk-free benchmark.
-    cetes_return = body.total * CETES_28_RATE * body.horizonte_anos
+    cetes_return = body.total * (discrete_compounding_accumulation_factor(CETES_28_RATE, body.horizonte_anos, _PERIODS_PER_YEAR) - 1.0)
     delta = result.expected_return - cetes_return
 
     return JSONResponse({
@@ -442,7 +454,7 @@ async def get_noticias() -> JSONResponse:
 
 # ── SEO ──────────────────────────────────────────────────────────────────────
 
-_SITE_PATHS = ["/", "/sofipo", "/ipab", "/glosario", "/como-funciona", "/privacidad"]
+_SITE_PATHS = ["/", "/sofipo", "/ipab", "/glosario", "/como-funciona", "/privacidad", "/acerca", "/terminos"]
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)

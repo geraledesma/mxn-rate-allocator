@@ -9,7 +9,8 @@ pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient
 
-from rate_allocator.web.app import TOTAL_MAX, TOTAL_MIN, app
+from rate_allocator.core.finance.rates import discrete_compounding_accumulation_factor
+from rate_allocator.web.app import CETES_28_RATE, TOTAL_MAX, TOTAL_MIN, _PERIODS_PER_YEAR, app
 
 client = TestClient(app)
 
@@ -103,11 +104,11 @@ def test_allocate_comparativa():
         "/api/allocate",
         json={"total": 100_000, "instituciones_habilitadas": names},
     )
-    comp = resp.json()["comparativa"]
-    assert comp["rendimiento_cetes"] == pytest.approx(6_250)
-    assert comp["delta"] == pytest.approx(
-        resp.json()["rendimiento_esperado"] - 6_250
-    )
+    data = resp.json()
+    comp = data["comparativa"]
+    expected_cetes = 100_000 * (discrete_compounding_accumulation_factor(CETES_28_RATE, 1.0, _PERIODS_PER_YEAR) - 1.0)
+    assert comp["rendimiento_cetes"] == pytest.approx(expected_cetes)
+    assert comp["delta"] == pytest.approx(data["rendimiento_esperado"] - comp["rendimiento_cetes"])
 
 
 def test_allocate_unknown_institutions_400():

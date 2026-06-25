@@ -1,0 +1,99 @@
+{% extends "_base.html" %}
+{% block title %}Términos de Uso · Tasas MX{% endblock %}
+{% block description %}Términos y condiciones de uso de Tasas MX por Merqurio. Herramienta informativa gratuita; no constituye asesoría financiera.{% endblock %}
+
+{% block content %}
+<article class="container content">
+  <p class="eyebrow">Legal</p>
+  <h1>Términos de Uso</h1>
+  <p class="lede">
+    Al acceder y usar Tasas MX, aceptas los presentes Términos de Uso. Si no estás
+    de acuerdo con alguno de ellos, te pedimos que no uses la herramienta.
+  </p>
+
+  <h2 id="objeto">1. Objeto y naturaleza del servicio</h2>
+  <p>
+    Tasas MX es una herramienta de carácter <strong>exclusivamente informativo</strong>
+    que calcula distribuciones de capital entre instituciones financieras reguladas en México.
+    No constituye asesoría financiera, fiscal ni de inversión; no es un intermediario
+    financiero; y no administra ni custodia fondos.
+  </p>
+  <p>
+    El servicio es operado por Merqurio, proyecto independiente con domicilio en los
+    Estados Unidos Mexicanos.
+  </p>
+
+  <h2 id="uso">2. Uso permitido</h2>
+  <p>
+    El uso de Tasas MX está permitido exclusivamente para fines personales, informativos
+    y no comerciales. Queda prohibido:
+  </p>
+  <ul>
+    <li>Reproducir, redistribuir o explotar comercialmente el contenido sin autorización escrita de Merqurio.</li>
+    <li>Realizar scraping automatizado, extracción masiva de datos o uso de la API pública fuera de los términos publicados para ese fin.</li>
+    <li>Usar la herramienta para actividades contrarias a la legislación mexicana o en perjuicio de terceros.</li>
+  </ul>
+
+  <h2 id="exactitud">3. Exactitud de la información</h2>
+  <p>
+    Las tasas y condiciones mostradas provienen de fuentes públicas y se actualizan
+    manualmente con la mayor frecuencia posible. <strong>Sin embargo, las instituciones
+    financieras pueden modificar sus tasas y condiciones sin previo aviso.</strong>
+  </p>
+  <p>
+    Merqurio no garantiza que la información esté actualizada en todo momento ni que
+    el resultado de la calculadora represente el óptimo exacto del instante en que se
+    consulta. La fecha de última actualización se indica al pie de cada página.
+  </p>
+
+  <h2 id="responsabilidad">4. Limitación de responsabilidad</h2>
+  <p>Merqurio no es responsable de:</p>
+  <ul>
+    <li>Pérdidas o perjuicios derivados del uso o de la imposibilidad de uso de la herramienta.</li>
+    <li>Decisiones financieras tomadas con base en la información mostrada.</li>
+    <li>Cambios en tasas, condiciones o disponibilidad de las instituciones mencionadas.</li>
+    <li>Interrupciones del servicio por mantenimiento, fallos técnicos o causas ajenas al control de Merqurio.</li>
+  </ul>
+  <p>
+    El uso de la herramienta es bajo la exclusiva responsabilidad del usuario. Se
+    recomienda verificar directamente con cada institución antes de tomar cualquier
+    decisión de inversión.
+  </p>
+
+  <h2 id="propiedad">5. Propiedad intelectual</h2>
+  <p>
+    La marca <strong>Merqurio</strong> y el nombre <strong>Tasas MX</strong> son
+    propiedad de Merqurio. El motor de optimización está publicado bajo licencia
+    <strong>BUSL-1.1</strong> (Business Source License); el código fuente está
+    disponible en
+    <a href="https://github.com/geraledesma/mxn-rate-allocator" target="_blank" rel="noopener noreferrer">GitHub</a>
+    y puede auditarse libremente, pero no puede usarse con fines comerciales antes del
+    Change Date establecido en la licencia (2030-06-11).
+  </p>
+  <p>
+    El contenido editorial del sitio (artículos, guías, glosario) está protegido por
+    derechos de autor. Puedes enlazarlo libremente; no puedes reproducirlo íntegramente
+    sin crédito y autorización.
+  </p>
+
+  <h2 id="modificaciones">6. Modificaciones al servicio y a estos términos</h2>
+  <p>
+    Merqurio puede modificar, suspender o discontinuar el servicio en cualquier momento
+    sin previo aviso. Estos Términos de Uso pueden actualizarse; la versión vigente es
+    siempre la publicada en esta página, fechada al {{ ultima_actualizacion }}.
+  </p>
+  <p>
+    El uso continuado de la herramienta después de cualquier modificación implica la
+    aceptación de los términos actualizados.
+  </p>
+
+  <h2 id="ley">7. Ley aplicable y jurisdicción</h2>
+  <p>
+    Estos Términos de Uso se rigen por la legislación de los Estados Unidos Mexicanos.
+    Cualquier controversia derivada del uso del servicio será sometida a la jurisdicción
+    de los tribunales competentes en México.
+  </p>
+
+  <p><a href="/">← Volver a la calculadora</a></p>
+</article>
+{% endblock %}

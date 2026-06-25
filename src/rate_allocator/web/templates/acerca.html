@@ -1,0 +1,155 @@
+{% extends "_base.html" %}
+{% block title %}Acerca de Merqurio · Quiénes somos y cómo funciona · Tasas MX{% endblock %}
+{% block description %}Misión, metodología, fuentes de datos y marco legal de Tasas MX por Merqurio. Herramienta gratuita de optimización de ahorro en México.{% endblock %}
+
+{% block extra_head %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  "name": "Acerca de Merqurio · Tasas MX",
+  "url": "{{ request.url }}",
+  "description": "Misión, metodología y fuentes de datos de la calculadora de tasas MX por Merqurio.",
+  "mainEntity": {
+    "@type": "Organization",
+    "name": "Merqurio",
+    "description": "Proyecto independiente de herramientas financieras para ahorradores en México. Misión: cerrar la brecha de información financiera.",
+    "foundingDate": "2026",
+    "knowsAbout": ["ahorro en México", "tasas bancarias", "IPAB", "SOFIPOs", "optimización de portafolios"]
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<article class="container content">
+  <p class="eyebrow">Acerca · transparencia total</p>
+  <h1>Acerca de Merqurio</h1>
+  <p class="lede">
+    Merqurio es un proyecto independiente de herramientas financieras para ahorradores
+    en México. Esta calculadora es el primer producto: gratuita, en español, sin registro.
+  </p>
+
+  <aside class="content-toc">
+    <strong>En esta página</strong>
+    <ul>
+      <li><a href="#mision">Misión</a></li>
+      <li><a href="#metodologia">Metodología</a></li>
+      <li><a href="#datos">Fuentes de datos</a></li>
+      <li><a href="#limites">Qué no hace la herramienta</a></li>
+      <li><a href="#marco-legal">Marco legal</a></li>
+      <li><a href="#disclaimer">Aviso legal</a></li>
+    </ul>
+  </aside>
+
+  <h2 id="mision">Misión</h2>
+  <p>
+    Los bancos y SOFIPOs en México cambian sus tasas constantemente para atraer clientes
+    nuevos. Cada institución tiene condiciones que también cambian con regularidad: montos
+    mínimos, requisitos de consumo, membresías, límites por tramo. Seguir todo eso
+    manualmente es complicado — y la mayoría de las personas termina dejando su dinero en
+    cuentas que pagan 2–4% cuando existen opciones reguladas y seguras que pagan 10–15%.
+  </p>
+  <p>
+    Esta no es una diferencia menor. Para un guardadito de $100,000 MXN, son entre $8,000
+    y $13,000 pesos extra al año que la mayoría no está capturando — no por falta de
+    interés, sino porque la brecha de información es real.
+  </p>
+  <p>
+    <strong>La inclusión financiera no debería depender de cuánto tienes ni de cuánto
+    tiempo puedes dedicarle.</strong> Merqurio existe para cerrar esa brecha.
+  </p>
+
+  <h2 id="metodologia">Metodología</h2>
+  <p>
+    La calculadora resuelve un problema de <strong>programación lineal entera mixta
+    (MILP)</strong> a través de la librería <code>scipy.optimize</code>. Es la misma
+    técnica que usan las aerolíneas para asignar tripulaciones o los fondos de inversión
+    para construir portafolios — adaptada al caso del ahorro doméstico en México.
+  </p>
+  <p>Dado un monto y las instituciones disponibles, el motor calcula en tiempo real
+  la distribución que:</p>
+  <ul>
+    <li>Maximiza el rendimiento esperado a un año.</li>
+    <li>Respeta los tramos de tasas por institución (los umbrales de saldo donde cambia la tasa).</li>
+    <li>Respeta los límites de cobertura: hasta $3.3M MXN por banco (<a href="/ipab">IPAB</a>) y hasta $208,000 MXN por SOFIPO (<a href="/ipab">Prosofipo</a>).</li>
+    <li>Considera las condiciones activas de cada institución: compras mínimas, depósitos periódicos, membresías.</li>
+    <li>Calcula el rendimiento con interés compuesto, no simple.</li>
+    <li>Descuenta la retención de ISR sobre intereses.</li>
+  </ul>
+  <p>
+    No es una regla heurística del tipo "pon todo en la de mayor tasa". Es una solución
+    matemáticamente óptima sobre el espacio de todas las distribuciones posibles.
+  </p>
+  <p>
+    El motor de optimización está publicado en
+    <a href="https://github.com/geraledesma/mxn-rate-allocator" target="_blank" rel="noopener noreferrer">GitHub</a>
+    bajo licencia BUSL-1.1 para que cualquiera pueda auditarlo.
+  </p>
+
+  <h2 id="datos">Fuentes de datos</h2>
+  <p>
+    Las tasas y condiciones de cada institución provienen de fuentes públicas. El proceso
+    de curación es:
+  </p>
+  <ol>
+    <li>Consulta directa de las páginas oficiales de cada banco o SOFIPO.</li>
+    <li>Registro en una base de datos con historial versionado — cada cambio queda trazado con fecha.</li>
+    <li>Revisión periódica para detectar cambios de tasa o condiciones.</li>
+  </ol>
+  <p>
+    La tasa de referencia CETES 28 días se obtiene del sitio del
+    <a href="https://www.banxico.org.mx" target="_blank" rel="noopener noreferrer">Banco de México (Banxico)</a>.
+    La lista de instituciones con autorización vigente se contrasta con el registro público de la
+    <a href="https://www.gob.mx/cnbv" target="_blank" rel="noopener noreferrer">Comisión Nacional Bancaria y de Valores (CNBV)</a>.
+  </p>
+  <div class="callout">
+    <strong>Las tasas pueden cambiar sin previo aviso.</strong> La fecha de última
+    actualización está indicada al pie de cada página. Si una institución modificó
+    sus condiciones después de esa fecha, el plan puede no reflejar el óptimo exacto
+    del momento — por eso recomendamos verificar directamente con cada institución antes
+    de mover dinero.
+  </div>
+
+  <h2 id="limites">Qué no hace la herramienta</h2>
+  <ul>
+    <li><strong>No abre cuentas</strong> — te dice dónde abrirlas; eres tú quien lo hace.</li>
+    <li><strong>No transfiere dinero</strong> — no tenemos acceso a tus cuentas en ningún momento.</li>
+    <li><strong>No recaba datos personales</strong> — el monto que ingresas se procesa en memoria y se descarta de inmediato. Sin registro, sin correo, sin teléfono.</li>
+    <li><strong>No personaliza por perfil</strong> — no considera tu tolerancia al riesgo, situación fiscal individual ni metas de largo plazo. Es una calculadora, no un asesor.</li>
+    <li><strong>No cubre productos de plazo fijo</strong> — solo cuentas a la vista (líquidas). CETES, pagarés y fondos de inversión quedan fuera del alcance actual.</li>
+  </ul>
+
+  <h2 id="marco-legal">Marco legal</h2>
+  <p>
+    Mostrar tasas públicamente disponibles y ejecutar un algoritmo de optimización
+    matemática <strong>no constituye asesoría financiera regulada</strong> bajo la
+    legislación mexicana. La frontera legal es clara: la asesoría personalizada
+    (basada en el perfil de riesgo, situación fiscal o metas específicas del usuario)
+    requiere autorización de la
+    <a href="https://www.gob.mx/cnbv" target="_blank" rel="noopener noreferrer">CNBV</a>.
+    Esta herramienta es una calculadora informativa — no cruza esa línea.
+  </p>
+  <p>
+    Los fondos de protección de depósitos
+    (<a href="https://www.ipab.org.mx" target="_blank" rel="noopener noreferrer">IPAB</a>
+    y Prosofipo) son organismos del Estado mexicano con respaldo legal explícito. Los
+    límites de cobertura mostrados en la calculadora corresponden a los vigentes publicados
+    por estas instituciones.
+  </p>
+  <p>
+    Merqurio no está afiliada a ninguna de las instituciones financieras mencionadas,
+    no administra fondos y no recibe depósitos.
+  </p>
+
+  <div class="callout callout-warn" id="disclaimer">
+    <strong>Aviso legal:</strong> Esta herramienta es de carácter informativo. No
+    constituye asesoría financiera, fiscal ni de inversión. Las tasas mostradas provienen
+    de fuentes públicas y pueden variar. Consulta directamente con cada institución antes
+    de tomar decisiones de inversión. Merqurio no administra fondos, no recibe depósitos
+    y no está afiliada a ninguna de las instituciones mencionadas.
+  </div>
+
+  <p><a href="/">← Volver a la calculadora</a></p>
+</article>
+{% endblock %}

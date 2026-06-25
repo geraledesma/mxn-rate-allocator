@@ -9,6 +9,7 @@ from rate_allocator import (
     Institution,
     Tier,
     allocate,
+    holding_simple_rate_from_annual,
 )
 from rate_allocator.core.finance.rates import discrete_compounding_accumulation_factor
 
@@ -580,3 +581,64 @@ class TestAllocate:
             total=100_000.0, institutions=institutions, periods_per_year=1
         )
         assert result.total_taxes_paid == pytest.approx(0.0)
+
+
+class TestCompoundingMode:
+    @pytest.fixture
+    def single_inst(self):
+        return [Institution(name="A", tiers=(Tier(limit=float("inf"), rate=0.10),))]
+
+    def test_simple_expected_return_matches_formula(self, single_inst):
+        principal = 50_000.0
+        years = 1.0
+        result = allocate(
+            total=principal,
+            institutions=single_inst,
+            horizon_years=years,
+            compounding="simple",
+        )
+        expected = principal * holding_simple_rate_from_annual(0.10, years)
+        assert result.expected_return == pytest.approx(expected)
+
+    def test_compound_expected_return_matches_formula(self, single_inst):
+        principal = 50_000.0
+        years = 1.0
+        result = allocate(
+            total=principal,
+            institutions=single_inst,
+            horizon_years=years,
+            compounding="compound",
+        )
+        expected = principal * (discrete_compounding_accumulation_factor(0.10, years, 365) - 1.0)
+        assert result.expected_return == pytest.approx(expected)
+
+    def test_compound_exceeds_simple_for_positive_rate(self, single_inst):
+        result_simple = allocate(
+            total=100_000.0, institutions=single_inst, compounding="simple"
+        )
+        result_compound = allocate(
+            total=100_000.0, institutions=single_inst, compounding="compound"
+        )
+        assert result_compound.expected_return > result_simple.expected_return
+
+    def test_simple_and_compound_agree_at_zero_rate(self):
+        institutions = [Institution(name="Z", tiers=(Tier(limit=float("inf"), rate=0.0),))]
+        r_simple = allocate(total=10_000.0, institutions=institutions, compounding="simple")
+        r_compound = allocate(total=10_000.0, institutions=institutions, compounding="compound")
+        assert r_simple.expected_return == pytest.approx(0.0)
+        assert r_compound.expected_return == pytest.approx(0.0)
+
+    def test_simple_multi_year_scales_linearly(self, single_inst):
+        principal = 10_000.0
+        r1 = allocate(total=principal, institutions=single_inst, horizon_years=1.0, compounding="simple")
+        r2 = allocate(total=principal, institutions=single_inst, horizon_years=2.0, compounding="simple")
+        assert r2.expected_return == pytest.approx(r1.expected_return * 2.0)
+
+    def test_invalid_compounding_raises(self, single_inst):
+        with pytest.raises(ValueError, match="compounding"):
+            allocate(total=10_000.0, institutions=single_inst, compounding="daily")  # type: ignore[arg-type]
+
+    def test_default_compounding_is_compound(self, single_inst):
+        result_default = allocate(total=50_000.0, institutions=single_inst)
+        result_explicit = allocate(total=50_000.0, institutions=single_inst, compounding="compound")
+        assert result_default.expected_return == pytest.approx(result_explicit.expected_return)

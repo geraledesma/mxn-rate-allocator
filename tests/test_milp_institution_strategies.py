@@ -69,7 +69,7 @@ def test_symmetric_institutions_minimize_open_count():
     rules = RegulatoryRules()
     var_map = _build_var_map(institutions)
     objective = _build_objective(
-        institutions, total, var_map, 1.0, 365, rules
+        institutions, total, var_map, 1.0, 365, rules, "compound"
     )
     delta = _institution_indicator_penalty(objective.c, len(institutions))
     x = _solve_milp_single_penalty(
@@ -137,7 +137,7 @@ def test_penalty_matches_phase1_primary_on_representative_cases():
     for _name, institutions, total in scenarios:
         var_map = _build_var_map(institutions)
         objective = _build_objective(
-            institutions, total, var_map, 1.0, 365, rules
+            institutions, total, var_map, 1.0, 365, rules, "compound"
         )
         x0 = _solve_core_only(institutions, total, var_map, objective, rules)
         o0 = _primary_objective_value(objective.c, x0)
@@ -176,7 +176,7 @@ def test_large_penalty_can_sacrifice_primary():
     rules = RegulatoryRules()
     var_map = _build_var_map(institutions)
     objective = _build_objective(
-        institutions, total, var_map, 1.0, 365, rules
+        institutions, total, var_map, 1.0, 365, rules, "compound"
     )
     x_lexish = _solve_core_only(institutions, total, var_map, objective, rules)
     o0 = _primary_objective_value(objective.c, x_lexish)
