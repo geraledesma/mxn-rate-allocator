@@ -260,6 +260,26 @@ async def page_terminos(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "terminos.html", _page_context(request))
 
 
+@app.get("/isr-intereses", response_class=HTMLResponse)
+async def page_isr(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "articulo-isr-intereses.html", _page_context(request))
+
+
+@app.get("/cetes-vs-cuentas", response_class=HTMLResponse)
+async def page_cetes(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "articulo-cetes-vs-vista.html", _page_context(request))
+
+
+@app.get("/donde-poner-ahorros", response_class=HTMLResponse)
+async def page_donde_poner(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "articulo-donde-poner-ahorros.html", _page_context(request))
+
+
+@app.get("/donde-poner-ahorros", response_class=HTMLResponse)
+async def page_donde(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "articulo-donde-poner-ahorros.html", _page_context(request))
+
+
 # ── routes: API ──────────────────────────────────────────────────────────────
 
 
@@ -454,7 +474,11 @@ async def get_noticias() -> JSONResponse:
 
 # ── SEO ──────────────────────────────────────────────────────────────────────
 
-_SITE_PATHS = ["/", "/sofipo", "/ipab", "/glosario", "/como-funciona", "/privacidad", "/acerca", "/terminos"]
+_SITE_PATHS = [
+    "/", "/sofipo", "/ipab", "/glosario", "/como-funciona",
+    "/privacidad", "/acerca", "/terminos",
+    "/isr-intereses", "/cetes-vs-cuentas", "/donde-poner-ahorros",
+]
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
