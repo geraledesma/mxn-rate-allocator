@@ -275,11 +275,6 @@ async def page_donde_poner(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "articulo-donde-poner-ahorros.html", _page_context(request))
 
 
-@app.get("/donde-poner-ahorros", response_class=HTMLResponse)
-async def page_donde(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "articulo-donde-poner-ahorros.html", _page_context(request))
-
-
 # ── routes: API ──────────────────────────────────────────────────────────────
 
 
