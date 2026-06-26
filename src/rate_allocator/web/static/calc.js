@@ -4,6 +4,14 @@
 
   const $ = (sel) => document.querySelector(sel);
 
+  // Affiliate URLs — fill in when registered with each program.
+  // Klar: klar.mx/programa-de-afiliados-klar
+  // Revolut: Impact (revolut.com/en-MX/become-a-revolut-affiliate)
+  const AFFILIATE = {
+    // 'Klar': 'https://klar.mx/?ref=TUCODIGO',
+    // 'Revolut': 'https://revolut.com/referral/TUCODIGO',
+  };
+
   const els = {
     slider: $('#amount-slider'),
     input: $('#amount-input'),
@@ -189,8 +197,13 @@
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({ detail: 'Error' }));
-        throw new Error(body.detail || ('HTTP ' + res.status));
+        const body = await res.json().catch(() => ({}));
+        const detail = body.detail;
+        const friendlyMsg =
+          detail && typeof detail === 'object' && detail.mensaje_usuario
+            ? detail.mensaje_usuario
+            : (typeof detail === 'string' ? detail : 'HTTP ' + res.status);
+        throw new Error(friendlyMsg);
       }
       const data = await res.json();
       renderResults(total, data);
@@ -316,9 +329,21 @@
             <span>Cobertura ${escapeHtml(a.cobertura_label)}</span>
           </div>
           ${condBlock}
+          ${affiliateCta(a.institucion)}
         </article>
       `;
     }).join('');
+  }
+
+  function affiliateCta(nombre) {
+    const url = AFFILIATE[nombre];
+    if (!url) return '';
+    return `<div class="plan-card-affiliate">
+      <a href="${escapeAttr(url)}" target="_blank" rel="noopener sponsored">
+        Abrir cuenta en ${escapeHtml(nombre)} →
+      </a>
+      <span class="affiliate-disc">(enlace de afiliado — no afecta el resultado del cálculo)</span>
+    </div>`;
   }
 
   function renderChart(chartData) {

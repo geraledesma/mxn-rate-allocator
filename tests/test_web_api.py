@@ -149,6 +149,64 @@ def test_allocate_subset_respects_selection():
     assert used.issubset(set(names))
 
 
+# ── MXN-BUG-001: infeasible optimizer → 422 with friendly message ─────────────
+
+
+def _names_by_type(tipo: str) -> list[str]:
+    insts = client.get("/instituciones").json()["instituciones"]
+    return [i["nombre"] for i in insts if i["tipo"] == tipo]
+
+
+def test_sofipo_only_exceeds_prosofipo_limit():
+    """Single SOFIPO + amount > its Prosofipo limit (208K) → 422 with user-friendly message."""
+    sofipo_names = _names_by_type("sofipo")
+    if not sofipo_names:
+        pytest.skip("no SOFIPO institutions in dataset")
+
+    # Use just one SOFIPO so its individual cap (208K) is the binding constraint
+    resp = client.post(
+        "/api/allocate",
+        json={"total": 250_000, "instituciones_habilitadas": sofipo_names[:1]},
+    )
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    assert detail["tipo"] == "monto_excede_cobertura"
+    msg = detail["mensaje_usuario"].lower()
+    assert "sofipo" in msg or "prosofipo" in msg
+
+
+def test_single_banco_exceeds_ipab_limit():
+    """Single banco + amount > IPAB limit (3.3M) → 422 with institution name in message."""
+    banco_names = _names_by_type("banco")
+    if not banco_names:
+        pytest.skip("no banco institutions in dataset")
+
+    one_banco = [banco_names[0]]
+    resp = client.post(
+        "/api/allocate",
+        json={"total": 4_000_000, "instituciones_habilitadas": one_banco},
+    )
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    assert detail["tipo"] == "monto_excede_cobertura"
+    assert one_banco[0] in detail["mensaje_usuario"]
+
+
+def test_infeasible_returns_422_not_500():
+    """All-SOFIPO selection + amount > combined Prosofipo cap → 422, never 500."""
+    sofipo_names = _names_by_type("sofipo")
+    if not sofipo_names:
+        pytest.skip("no SOFIPO institutions in dataset")
+
+    # Combined Prosofipo cap = n_sofipo × 208K; use 1.5M which exceeds any realistic dataset
+    resp = client.post(
+        "/api/allocate",
+        json={"total": 1_500_000, "instituciones_habilitadas": sofipo_names},
+    )
+    assert resp.status_code == 422
+    assert resp.status_code != 500
+
+
 # ── /noticias ─────────────────────────────────────────────────────────────────
 
 

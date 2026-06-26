@@ -6,7 +6,7 @@ import os
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -154,6 +154,17 @@ def _institucion_payload(inst: Institution, rules: RegulatoryRules) -> dict:
         "condicion": cond_text,
         "tiene_condicion": tiene_cond,
     }
+
+
+def _max_allocatable(institutions: list[Institution], rules: RegulatoryRules) -> float:
+    """Sum of protection limits across institutions. Returns inf if any institution has no cap."""
+    total = 0.0
+    for inst in institutions:
+        limit = inst.protection_limit_for(rules)
+        if limit is None:
+            return float("inf")
+        total += limit
+    return total
 
 
 def _fmt_mxn(amount: float) -> str:
@@ -309,13 +320,53 @@ async def post_allocate(body: AllocateRequest) -> JSONResponse:
             detail=f"Ninguna institución seleccionada existe en la base de datos. No encontradas: {missing}",
         )
 
-    result = allocate(
-        total=body.total,
-        institutions=selected,
-        horizon_years=body.horizonte_anos,
-        periods_per_year=_PERIODS_PER_YEAR,
-        regulatory_rules=rules,
-    )
+    max_cap = _max_allocatable(selected, rules)
+    if body.total > max_cap:
+        solo_sofipo = all(
+            (inst.institution_type or "").lower() == "sofipo" for inst in selected
+        )
+        if solo_sofipo:
+            msg = (
+                f"Con solo SOFIPOs seleccionadas, el monto máximo cubierto por Prosofipo es "
+                f"${max_cap:,.0f} MXN. Tu monto (${body.total:,.0f} MXN) excede ese límite. "
+                "Agrega al menos un banco para poder optimizar montos mayores."
+            )
+        elif len(selected) == 1:
+            inst_name = selected[0].name
+            msg = (
+                f"Con solo {inst_name} seleccionada, el máximo cubierto es "
+                f"${max_cap:,.0f} MXN. Selecciona más instituciones o ajusta el monto."
+            )
+        else:
+            msg = (
+                f"Tu monto (${body.total:,.0f} MXN) excede la cobertura total de las instituciones "
+                f"seleccionadas (${max_cap:,.0f} MXN). Selecciona más instituciones o reduce el monto."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"tipo": "monto_excede_cobertura", "mensaje_usuario": msg},
+        )
+
+    try:
+        result = allocate(
+            total=body.total,
+            institutions=selected,
+            horizon_years=body.horizonte_anos,
+            periods_per_year=_PERIODS_PER_YEAR,
+            regulatory_rules=rules,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "tipo": "optimizer_infeasible",
+                "mensaje_usuario": (
+                    "No fue posible encontrar una asignación con los parámetros seleccionados. "
+                    "Intenta ajustar el monto o seleccionar más instituciones."
+                ),
+                "detalle_tecnico": str(exc),
+            },
+        ) from exc
 
     asignaciones = []
     chart_labels: list[str] = []

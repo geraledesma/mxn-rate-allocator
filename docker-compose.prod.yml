@@ -6,15 +6,13 @@ services:
     labels:
       - "traefik.enable=true"
       # Replace merqurio.mx with actual domain once registered (MXN-006)
-      - "traefik.http.routers.merqurio.rule=Host(`merqurio.mx`)"
+      - "traefik.http.routers.merqurio.rule=Host(`merqurio.com.mx`)"
       - "traefik.http.routers.merqurio.entrypoints=websecure"
       - "traefik.http.routers.merqurio.tls.certresolver=letsencrypt"
       - "traefik.http.services.merqurio.loadbalancer.server.port=8000"
     networks:
-      - traefik_proxy  # Verify name: `docker network ls` on VPS
+      - hermes-net
 
 networks:
-  traefik_proxy:
+  hermes-net:
     external: true
-    # Typical names: traefik_proxy, traefik_web, proxy, traefik
-    # Check with: docker network ls | grep traefik

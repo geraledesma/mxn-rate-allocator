@@ -942,6 +942,29 @@ button { font-family: inherit; cursor: pointer; }
   gap: 6px;
 }
 
+.plan-card-affiliate {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.plan-card-affiliate a {
+  font-size: .875rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.plan-card-affiliate a:hover { text-decoration: underline; }
+.affiliate-disc {
+  font-size: .75rem;
+  color: var(--ink-soft);
+}
+
 .warning {
   background: var(--warning-bg);
   color: var(--warning);

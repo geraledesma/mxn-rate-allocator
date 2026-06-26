@@ -13,9 +13,12 @@
   "mainEntity": {
     "@type": "Organization",
     "name": "Merqurio",
-    "description": "Proyecto independiente de herramientas financieras para ahorradores en México. Misión: cerrar la brecha de información financiera.",
+    "description": "Empresa mexicana de herramientas financieras para ahorradores. Misión: cerrar la brecha de información financiera en México.",
     "foundingDate": "2026",
-    "knowsAbout": ["ahorro en México", "tasas bancarias", "IPAB", "SOFIPOs", "optimización de portafolios"]
+    "areaServed": "MX",
+    "sameAs": ["https://github.com/geraledesma/mxn-rate-allocator"],
+    "knowsAbout": ["ahorro en México", "tasas bancarias", "IPAB", "SOFIPOs", "optimización de portafolios", "inclusión financiera"],
+    "url": "{{ request.base_url }}"
   }
 }
 </script>
@@ -26,9 +29,17 @@
   <p class="eyebrow">Acerca · transparencia total</p>
   <h1>Acerca de Merqurio</h1>
   <p class="lede">
-    Merqurio es un proyecto independiente de herramientas financieras para ahorradores
-    en México. Esta calculadora es el primer producto: gratuita, en español, sin registro.
+    Merqurio es una empresa mexicana de herramientas financieras para ahorradores.
+    Esta calculadora es nuestro primer producto: gratuita, en español, sin registro,
+    construida sobre un motor de optimización matemática auditado públicamente.
   </p>
+
+  <div class="callout">
+    <strong>Fundada en 2026</strong> con una premisa concreta: la mayoría de los mexicanos
+    con ahorros en cuentas a la vista no está capturando la tasa óptima disponible —
+    no por falta de interés, sino porque el mercado es opaco y cambia constantemente.
+    Merqurio existe para hacer ese trabajo de forma automática, gratuita y transparente.
+  </div>
 
   <aside class="content-toc">
     <strong>En esta página</strong>
@@ -36,6 +47,7 @@
       <li><a href="#mision">Misión</a></li>
       <li><a href="#metodologia">Metodología</a></li>
       <li><a href="#datos">Fuentes de datos</a></li>
+      <li><a href="#curacion">Proceso de curación</a></li>
       <li><a href="#limites">Qué no hace la herramienta</a></li>
       <li><a href="#marco-legal">Marco legal</a></li>
       <li><a href="#disclaimer">Aviso legal</a></li>
@@ -110,6 +122,22 @@
     del momento — por eso recomendamos verificar directamente con cada institución antes
     de mover dinero.
   </div>
+
+  <h2 id="curacion">Proceso de curación de datos</h2>
+  <p>
+    Cada tasa en la calculadora pasa por un proceso de verificación antes de publicarse:
+  </p>
+  <ol>
+    <li><strong>Fuente primaria:</strong> consultamos directamente la página oficial de cada institución (sección de productos de ahorro o cuenta a la vista).</li>
+    <li><strong>Verificación cruzada:</strong> contrastamos con comparadores especializados y con el registro de instituciones autorizadas de la <a href="https://www.gob.mx/cnbv" target="_blank" rel="noopener noreferrer">CNBV</a>.</li>
+    <li><strong>Versionado con fecha:</strong> cada cambio queda registrado en una base de datos con historial — sabemos cuándo cambió cada tasa y cuánto era antes.</li>
+    <li><strong>Revisión periódica:</strong> monitoreamos cambios de condiciones (tasas, mínimos, requisitos) y actualizamos cuando detectamos modificaciones.</li>
+  </ol>
+  <p>
+    La fecha de última revisión está indicada en el pie de cada página. Si detectas una
+    discrepancia entre lo que muestra la calculadora y la tasa actual de una institución,
+    escríbenos a <strong>privacidad@merqurio.com.mx</strong>.
+  </p>
 
   <h2 id="limites">Qué no hace la herramienta</h2>
   <ul>
