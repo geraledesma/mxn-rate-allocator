@@ -1,24 +1,106 @@
 # Institutions not listed on tasas.mx — manually curated.
-# Rates verified from institution pages/app UI; update as needed.
+#
+# REGLA: La tasa que entra al DB es siempre la tasa NOMINAL del T&C oficial.
+# Nunca usar el GAT ni el valor del homepage como fuente de tasa.
+# Cada institución debe tener source_url apuntando al T&C vigente.
+
 institutions:
   - name: PlataCard
-    institution_type: banco
+    institution_type: banco  # "Banco Plata S.A., Institución de Banca Múltiple" (CNBV dic 2024). IPAB.
+    source_url: https://prime.platacard.mx/file-service/static/eula/ahorro_flexible_booklet.pdf
+    # T&C Ahorro Flexible — confirmado mar 2026. Tasas nominales (no GAT):
+    #   Variante base:  7% nominal — Plata Cuenta sin membresía (GAT nominal 7.23%)
+    #   Variante Plata+: 10% nominal — con membresía Plata+ ($114.84/mes = $99+IVA)
+    #   Promo jul 2026: 11% hasta jul 3 — expiró.
+    # MODELO: dos tramos alternativos en el mismo límite (igual que Uala).
+    #   El optimizer decide si $114.84/mes de membresía vale vs el 3% extra.
+    #   Break-even: $114.84*12 / 0.03 ≈ $45,936 MXN en PlataCard.
     tiers:
       - limit: .inf
-        rate: 0.10
+        rate: 0.07  # Base — sin membresía
+      - limit: .inf
+        rate: 0.10  # Plata+ — con membresía ($114.84/mes)
         constraints:
           - type: monthly_expense
-            cost: 114.84  # $99 + IVA/mes membresía
+            cost: 114.84  # $99 + IVA/mes membresía Plata+
             benefit: membership_plan
             condition_value: 114.84
             active: true
 
+  - name: Uala
+    institution_type: banco  # "Ualá S.A., Institución de Banca Múltiple" — T&C V9
+    source_url: https://www.uala.mx/tyc-uala-cuenta-con-rendimiento-plus
+    # T&C V9 — vigente Jul 2026. Tasas nominales (no GAT):
+    #   Tasa Base:      desconocida (sin condición de gasto)
+    #   Tasa Plus:      12% nominal — gasto mensual ≥ $3,000 MXN (T&C cl. 5.2)
+    #   Tasa Plus alta: 15% nominal — gasto mensual ≥ $6,000 MXN (T&C cl. 5.3)
+    #   Límite saldo:   $30,000 MXN para cualquier Tasa Plus (T&C cl. 6.3)
+    #   Excedente:      sin rendimiento
+    #   El 16% en homepage es el GAT del 15% nominal (tasa efectiva anual compuesta)
+    #
+    # NOTA DE MODELO: los 3 modos son alternativos por condición de gasto, no
+    # tramos acumulados por saldo. El modelo actual no soporta condition_tiers
+    # nativos — se modelan como tramos con constraints. El optimizer usa el tramo
+    # cuya constraint el usuario puede activar.
+    tiers:
+      # Tramo intermedio: 12% hasta $30k — requiere gasto ≥$3,000/mes
+      - limit: 30_000
+        rate: 0.12  # T&C cl. 5.2 — Tasa Plus
+        constraints:
+          - type: monthly_expense
+            cost: 3000.0
+            benefit: mid_rate_tier
+            condition_value: 3000.0
+            active: true
+      # Tramo alto: 15% hasta $30k — requiere gasto ≥$6,000/mes (override del anterior)
+      # TODO modelo: cuando condition_tiers esté implementado, reemplazar por tiers alternativos
+      - limit: 30_000
+        rate: 0.15  # T&C cl. 5.3 — Tasa Plus más alta
+        constraints:
+          - type: monthly_expense
+            cost: 6000.0
+            benefit: high_rate_tier
+            condition_value: 6000.0
+            active: true
+      # Excedente: sin rendimiento (T&C cl. 6.3)
+      - limit: .inf
+        rate: 0.0
+
+  - name: Stori
+    institution_type: sofipo  # "Stori México, S.A. de C.V., Sociedad Financiera Popular"
+    source_url: https://www.storicard.com/files/stori-cuentamas/folleto-informativo-depositos.pdf?v=20260113
+    # Folleto Informativo Cuenta de Depósito — vigente ene 2026.
+    # Tasa nominal CUENTA A LA VISTA (Stori Cuenta+):
+    #   ~6.77% nominal — GAT Nominal 7.00% (vigente abr-may 2026, puede variar mensual)
+    # NOTA: tasas.mx solo muestra tasas de PLAZO FIJO para Stori (sin columna "vista").
+    #   Stori Inversión+ 60 días: 15% nominal — FUERA DE ALCANCE (plazo fijo >1 mes... bueno, 60 días)
+    #   Stori Inversión+ 180 días: 8.25% nominal — FUERA DE ALCANCE
+    # La "Stori Cuenta+" es el único producto a la vista y se maneja aquí manualmente.
+    tiers:
+      - limit: .inf
+        rate: 0.0677  # Folleto ene 2026 — tasa nominal Cuenta+ a la vista (variable mensual)
+
+  - name: Finsus
+    institution_type: sofipo  # "Financiera Sustentable de México, S.A. de C.V., S.F.P." (CNBV)
+    source_url: https://finsus.mx/faqs-items/cuales-son-las-tasas-que-manejan-en-cuenta-de-ahorro-y-en-inversion/
+    # ⚠️  EN REVISIÓN — tasa a la vista no confirmada con fuente primaria.
+    # Fuentes consultadas son contradictorias:
+    #   - Búsqueda jul 2026 (resumen AI): "4% anual" para cuenta a la vista (datos ene 2026)
+    #   - Otra fuente: "6-7.5% con liquidez inmediata" (podría ser Finsus+)
+    # tasas.mx solo muestra plazos fijos (7 días → 1 año: 7.09%-10.09%) — FUERA DE ALCANCE.
+    # PDF costos: https://finsus.mx/archivos/Tablas-de-costos-y-comisiones-de-Productos-de-ahorro-e-inversion.pdf
+    # TODO: leer FAQ o PDF de costos directamente para confirmar tasa a la vista exacta.
+    tiers:
+      - limit: .inf
+        rate: 0.04  # PENDIENTE — 4% es estimado no confirmado. Usar con cautela.
+
   - name: Mifel
     institution_type: banco
+    # source_url: https://mifel.com.mx/terminos  # pendiente verificar URL exacta (503/403)
     tiers:
-      - limit: 99.99       # below $100 earns nothing
+      - limit: 99.99      # saldo < $100 no genera rendimiento
         rate: 0.0
-      - limit: 500_000     # 10% up to $500k — source: T&C PDF Jun 2026
+      - limit: 500_000    # 10% hasta $500k — T&C PDF Jun 2026
         rate: 0.10
       - limit: .inf
-        rate: 0.0001       # 0.01% above $500k
+        rate: 0.0001      # 0.01% sobre $500k

@@ -19,7 +19,7 @@ import requests
 import yaml
 from bs4 import BeautifulSoup
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[3]
 OUTPUT_PATH = REPO_ROOT / "data" / "scraped_live.yaml"
 TASAS_MX_URL = "https://www.tasas.mx/"
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; rate-allocator-scraper/1.0)"}
@@ -29,6 +29,9 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; rate-allocator-scraper/1.0)"}
 # limits are in MXN. "inf" means no cap.
 # Sourced from institution pages + pitch deck research (June 2026).
 TIER_STRUCTURES: dict[str, dict] = {
+    # source: https://web.didiglobal.com/mx/jpsofiexpress/didi-cuenta/
+    # T&C contract: https://web.didiglobal.com/mx/didi-cuenta/contrato.pdf
+    # Product: DiDi Cuenta — a la vista, daily returns. $10k limit confirmed Jan 2026.
     "DiDi": {
         "institution_type": "sofipo",
         "tiers": [
@@ -36,6 +39,9 @@ TIER_STRUCTURES: dict[str, dict] = {
             {"limit": "inf",  "rate": 0.075},
         ],
     },
+    # source: https://www.revolut.com/es-MX/instant-access-savings/
+    # Product: Rendimientos Diarios — a la vista, 24/7, no lock-up.
+    # Rates: first $25k at vista rate; $25k-$1M and $1M+ are hardcoded from T&C Apr 2026.
     "Revolut": {
         "institution_type": "banco",
         "tiers": [
@@ -44,6 +50,9 @@ TIER_STRUCTURES: dict[str, dict] = {
             {"limit": "inf",     "rate": 0.05},
         ],
     },
+    # source: https://cdn.nubank.com.br/MX/folleto-informativo-cuenta.pdf
+    # Product: Cajita Turbo (a la vista) — requires ≥1 purchase per 30 days on Nu card.
+    # Over $25k: 24/7 Cajita at ~6.75%, no conditions.
     "Nu": {
         "institution_type": "sofipo",
         "tiers": [
@@ -63,11 +72,14 @@ TIER_STRUCTURES: dict[str, dict] = {
             {"limit": "inf", "rate": 0.0675},
         ],
     },
+    # source: https://www.mercadopago.com.mx/ayuda/terminos-condiciones-beneficio_32110
+    # Product: Dinero en Cuenta — a la vista, daily returns. Rate conditional on monthly spend.
+    # First $25k: vista rate (requires ≥$3,000 monthly spend). Over $25k: ~6% no condition.
     "Mercado Pago": {
         "institution_type": "none",
         "tiers": [
             {
-                "limit": 25_000,  # 13% applies to first $25k — source: app UI (June 2026, T&C not confirmed)
+                "limit": 25_000,
                 "rate_key": "vista",
                 "constraints": [
                     {
@@ -79,9 +91,12 @@ TIER_STRUCTURES: dict[str, dict] = {
                     }
                 ],
             },
-            {"limit": "inf", "rate": 0.06},  # ~6% rest — source: app UI (June 2026, T&C not confirmed)
+            {"limit": "inf", "rate": 0.06},
         ],
     },
+    # source: https://www.openbank.mx/cuenta-debito-open-plus
+    # Product: Cuenta Débito Open+ — a la vista, Santander/IPAB. Rates from T&C Mar 2026.
+    # First $40k: vista rate from tasas.mx. $40k-$1M and $1M+ hardcoded from T&C.
     "Openbank": {
         "institution_type": "banco",
         "tiers": [
@@ -90,42 +105,46 @@ TIER_STRUCTURES: dict[str, dict] = {
             {"limit": "inf",     "rate": 0.07},
         ],
     },
+    # source: https://www.klar.mx/inversion (Fondo de Rendimiento Klar, flexible)
+    # Product: Flexible investment (on-demand, no lock-up, no early-withdrawal penalty).
+    # NOTE: 8.5% is for Klar Plus/Platino tier. Light tier earns less (~3-6%).
+    # tasas.mx shows "vista" = 8.5% which corresponds to the flexible/on-demand tier.
     "Klar": {
         "institution_type": "sofipo",
         "tiers": [
             {"limit": "inf", "rate_key": "vista"},
         ],
     },
+    # source: https://crediclub.com.mx (supertasas.com redirects here)
+    # Product: Cuenta de Ahorro a la Vista — Crediclub SFP. Only "vista" rate is in scope.
+    # NOTA: Crediclub también ofrece plazos (7-364 días) con tasas más altas — EXCLUIDOS.
     "Supertasas": {
         "institution_type": "sofipo",
         "tiers": [
             {"limit": "inf", "rate_key": "vista"},
         ],
     },
+    # source: https://www.bmv.com.mx/es/fondos/BONDDIA-7407
+    # Product: Fondo GBM de Instrumentos Gubernamentales — daily liquidity, a la vista.
+    # Invests in short-term government securities. Returns calculated and paid daily.
     "BONDDIA": {
         "institution_type": "none",
         "tiers": [
             {"limit": "inf", "rate_key": "vista"},
         ],
     },
+    # source: https://www.cetesdirecto.com / banxico.org.mx
+    # Product: CETES 28 días — 28-day maturity ≤ 1 mes, qualifies per methodology.
+    # tasas.mx shows CETES under "1mes" column (CETES 28 días ≈ 1 mes).
     "Cetes": {
         "institution_type": "none",
         "tiers": [
             {"limit": "inf", "rate_key": "1mes"},
         ],
     },
-    "Finsus": {
-        "institution_type": "sofipo",
-        "tiers": [
-            {"limit": "inf", "rate_key": "1mes"},
-        ],
-    },
-    "Stori": {
-        "institution_type": "sofipo",
-        "tiers": [
-            {"limit": "inf", "rate_key": "1mes"},
-        ],
-    },
+    # Finsus and Stori REMOVED from auto-scrape — their tasas.mx rates are ALL fixed-term
+    # (no "vista" column). Their a la vista products are manually curated in
+    # data/manual_additions.yaml with official T&C rates.
 }
 
 COLUMN_KEYS = ["vista", "7dias", "1mes", "3meses", "6meses", "1año"]
@@ -225,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
 
     data = build_yaml(scraped)
     yaml_text = (
-        "# Auto-generated by scripts/scrape_tasas_mx.py\n"
+        "# Auto-generated by rate-scrape CLI\n"
         "# Source: https://www.tasas.mx/\n"
         "# Tier limits are manually curated; rates are scraped.\n\n"
         + yaml.dump(data, allow_unicode=True, default_flow_style=False, sort_keys=False)
@@ -239,13 +258,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\nWrote {len(data['institutions'])} institutions to {args.output}", file=sys.stderr)
 
     if args.ingest:
-        import subprocess
-        result = subprocess.run(
-            [sys.executable, str(REPO_ROOT / "scripts" / "ingest_yaml.py"), str(args.output),
-             "--init-schema", "--note", "scraped from tasas.mx"],
-            cwd=REPO_ROOT,
-        )
-        return result.returncode
+        from rate_allocator.cli.ingest import main as _ingest_main
+        return _ingest_main([str(args.output), "--init-schema", "--note", "scraped from tasas.mx"])
 
     return 0
 
