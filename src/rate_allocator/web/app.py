@@ -521,6 +521,7 @@ async def get_noticias() -> JSONResponse:
                 groups[group_key] = (ts, {
                     "institucion": e.institution_name,
                     "fecha_label": _date_es(ref_date),
+                    "descripcion": e.note or "",
                     "cambios": [],
                 })
             groups[group_key][1]["cambios"].append({
@@ -532,7 +533,7 @@ async def get_noticias() -> JSONResponse:
     except Exception:
         pass
 
-    # YAML fallback — effective_from in YAML is curated and IS the institution's date
+    # YAML — curated entries, always have confirmed dates and human-written descriptions
     seen_keys = set(groups.keys())
     for e in load_noticias_yaml(NOTICIAS_YAML_FILE):
         ref_date = _to_date(e.effective_from)
@@ -541,19 +542,21 @@ async def get_noticias() -> JSONResponse:
         if group_key in seen_keys:
             continue
         ts = float(datetime.combine(ref_date, datetime.min.time()).replace(tzinfo=timezone.utc).timestamp())
-        if group_key not in groups:
-            groups[group_key] = (ts, {
-                "institucion": e.institution,
-                "fecha_label": _date_es(ref_date),
-                "cambios": [],
-            })
-            seen_keys.add(group_key)
-        groups[group_key][1]["cambios"].append({
-            "tramo": str(e.tier_display),
-            "tasa_anterior_label": f"{e.old_rate:.2%}",
-            "tasa_nueva_label": f"{e.new_rate:.2%}",
-            "subio": e.new_rate > e.old_rate,
+        groups[group_key] = (ts, {
+            "institucion": e.institution,
+            "fecha_label": _date_es(ref_date),
+            "descripcion": e.descripcion,
+            "cambios": [
+                {
+                    "tramo": c.tier_display,
+                    "tasa_anterior_label": f"{c.old_rate:.2%}",
+                    "tasa_nueva_label": f"{c.new_rate:.2%}",
+                    "subio": c.new_rate > c.old_rate,
+                }
+                for c in e.cambios
+            ],
         })
+        seen_keys.add(group_key)
 
     sorted_groups = sorted(groups.values(), key=lambda x: x[0], reverse=True)
     return JSONResponse({"noticias": [g for _, g in sorted_groups[:NOTICIAS_LIMIT]]})

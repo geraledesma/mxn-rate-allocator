@@ -628,6 +628,7 @@
         const tramoLabel = n.cambios.length > 1 ? `<span class="noticia-tramo">tramo ${escapeHtml(c.tramo)}</span> ` : '';
         return `<p class="noticia-detail">${tramoLabel}${escapeHtml(c.tasa_anterior_label)} → <strong class="noticia-${cDir}">${escapeHtml(c.tasa_nueva_label)}</strong></p>`;
       }).join('');
+      const descHtml = n.descripcion ? `<p class="noticia-desc">${escapeHtml(n.descripcion)}</p>` : '';
       return `
         <div class="noticia">
           <span class="noticia-arrow noticia-${dir}" aria-hidden="true">${arrow}</span>
@@ -636,6 +637,7 @@
               <strong>${escapeHtml(n.institucion)}</strong>
               <span class="noticia-fecha">${escapeHtml(n.fecha_label)}</span>
             </p>
+            ${descHtml}
             ${cambiosHtml}
           </div>
         </div>
