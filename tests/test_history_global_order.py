@@ -16,6 +16,8 @@ def test_tier_changes_sorted_global_newest_first() -> None:
     newer = TierRateChangeEvent(
         effective_from=datetime(2026, 5, 10, tzinfo=timezone.utc),
         applied_at=datetime(2026, 5, 11, tzinfo=timezone.utc),
+        vigente_desde=None,
+        change_id=None,
         institution_name="Z",
         institution_key="zz",
         tier_index=1,
@@ -27,6 +29,8 @@ def test_tier_changes_sorted_global_newest_first() -> None:
     older = TierRateChangeEvent(
         effective_from=datetime(2026, 3, 1, tzinfo=timezone.utc),
         applied_at=datetime(2026, 3, 5, tzinfo=timezone.utc),
+        vigente_desde=None,
+        change_id=None,
         institution_name="A",
         institution_key="aa",
         tier_index=2,
@@ -38,6 +42,8 @@ def test_tier_changes_sorted_global_newest_first() -> None:
     naive_ok = TierRateChangeEvent(
         effective_from=datetime(2026, 4, 1),
         applied_at=datetime(2026, 4, 2),
+        vigente_desde=None,
+        change_id=None,
         institution_name="M",
         institution_key="mm",
         tier_index=0,

@@ -143,6 +143,8 @@ def _institucion_payload(inst: Institution, rules: RegulatoryRules) -> dict:
     cond_text, tiene_cond = _constraint_text(inst)
     tipo = (inst.institution_type or "").lower()
     best = _best_rate(inst)
+    best_tier = max(inst.tiers, key=lambda t: t.rate)
+    limite_label = "" if best_tier.limit == float("inf") else f"hasta ${best_tier.limit:,.0f}"
     return {
         "nombre": inst.name,
         "tipo": tipo,
@@ -150,6 +152,7 @@ def _institucion_payload(inst: Institution, rules: RegulatoryRules) -> dict:
         "cobertura_label": _coverage_label(inst, rules),
         "tasa_max": float(best),
         "tasa_max_label": f"{best:.0%}",
+        "tasa_max_limite_label": limite_label,
         "tramos": _tier_payload(inst),
         "condicion": cond_text,
         "tiene_condicion": tiene_cond,
@@ -487,10 +490,24 @@ async def post_allocate(body: AllocateRequest) -> JSONResponse:
     })
 
 
+def _noticias_fecha(ref_date: date, es_vigente: bool) -> str:
+    label = _date_es(ref_date)
+    return label if es_vigente else f"detectado el {label}"
+
+
 @app.get("/noticias")
 async def get_noticias() -> JSONResponse:
-    """Recent rate changes, newest first — DB history merged with curated YAML."""
-    items: list[tuple[float, dict]] = []
+    """Recent rate changes grouped by institution+batch, newest first.
+
+    Each group has:
+      institucion, fecha_label, fecha_es_vigente, cambios:[{tramo, tasa_anterior_label,
+      tasa_nueva_label, subio}]
+
+    fecha_es_vigente=True means the date comes from the institution's stated effective
+    date (vigente_desde). False means it's when we detected the change (applied_at).
+    """
+    # key=(institution_key, batch_group) → (sort_ts, group_dict)
+    groups: dict[tuple[str, str], tuple[float, dict]] = {}
 
     try:
         from rate_allocator.persistence import create_db_engine, session_scope
@@ -499,43 +516,59 @@ async def get_noticias() -> JSONResponse:
         engine = create_db_engine(_resolve_database_url())
         with session_scope(engine) as session:
             events = load_recent_tier_rate_changes(session, limit=NOTICIAS_LIMIT)
+
         for e in events:
-            ef = e.effective_from
-            ts = ef.timestamp() if ef.tzinfo else ef.replace(tzinfo=timezone.utc).timestamp()
-            items.append((ts, {
-                "institucion": e.institution_name,
+            if e.vigente_desde:
+                ref_date = e.vigente_desde
+                es_vigente = True
+            else:
+                ref_date = _to_date(e.applied_at)
+                es_vigente = False
+            ts = float(datetime.combine(ref_date, datetime.min.time()).replace(tzinfo=timezone.utc).timestamp())
+            group_key = (e.institution_key, e.change_id or str(ref_date))
+
+            if group_key not in groups:
+                groups[group_key] = (ts, {
+                    "institucion": e.institution_name,
+                    "fecha_label": _noticias_fecha(ref_date, es_vigente),
+                    "fecha_es_vigente": es_vigente,
+                    "cambios": [],
+                })
+            groups[group_key][1]["cambios"].append({
                 "tramo": str(e.tier_index + 1),
-                "fecha_label": _date_es(_to_date(ef)),
-                "tasa_anterior": float(e.old_rate),
                 "tasa_anterior_label": f"{e.old_rate:.2%}",
-                "tasa_nueva": float(e.new_rate),
                 "tasa_nueva_label": f"{e.new_rate:.2%}",
                 "subio": e.new_rate > e.old_rate,
-            }))
+            })
     except Exception:
         pass
 
-    seen = {(i["institucion"], i["tramo"], i["fecha_label"]) for _, i in items}
+    # YAML fallback — effective_from in YAML is curated and IS the institution's date
+    seen_keys = set(groups.keys())
     for e in load_noticias_yaml(NOTICIAS_YAML_FILE):
-        ef = e.effective_from
-        ts = ef.astimezone(timezone.utc).timestamp() if ef.tzinfo else ef.replace(tzinfo=timezone.utc).timestamp()
-        item = {
-            "institucion": e.institution,
+        ref_date = _to_date(e.effective_from)
+        inst_key = e.institution.lower().replace(" ", "_")
+        group_key = (inst_key, str(ref_date))
+        if group_key in seen_keys:
+            continue
+        ts = float(datetime.combine(ref_date, datetime.min.time()).replace(tzinfo=timezone.utc).timestamp())
+        if group_key not in groups:
+            groups[group_key] = (ts, {
+                "institucion": e.institution,
+                "fecha_label": _date_es(ref_date),
+                "fecha_es_vigente": True,
+                "cambios": [],
+            })
+            seen_keys.add(group_key)
+        groups[group_key][1]["cambios"].append({
             "tramo": str(e.tier_display),
-            "fecha_label": _date_es(_to_date(ef)),
-            "tasa_anterior": float(e.old_rate),
             "tasa_anterior_label": f"{e.old_rate:.2%}",
-            "tasa_nueva": float(e.new_rate),
             "tasa_nueva_label": f"{e.new_rate:.2%}",
             "subio": e.new_rate > e.old_rate,
-        }
-        key = (item["institucion"], item["tramo"], item["fecha_label"])
-        if key not in seen:
-            items.append((ts, item))
-            seen.add(key)
+        })
 
-    items.sort(key=lambda x: x[0], reverse=True)
-    return JSONResponse({"noticias": [i for _, i in items[:NOTICIAS_LIMIT]]})
+    sorted_groups = sorted(groups.values(), key=lambda x: x[0], reverse=True)
+    return JSONResponse({"noticias": [g for _, g in sorted_groups[:NOTICIAS_LIMIT]]})
 
 
 # ── SEO ──────────────────────────────────────────────────────────────────────

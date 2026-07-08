@@ -14,12 +14,13 @@ The schema is portable across SQLite and PostgreSQL. Partial unique indexes
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -54,6 +55,7 @@ class ChangeBatch(Base):
     source: Mapped[str] = mapped_column(String(512), nullable=False)
     actor: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     note: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
+    vigente_desde: Mapped[Optional[date]] = mapped_column(Date(), nullable=True)
 
 
 class InstitutionVersion(Base):

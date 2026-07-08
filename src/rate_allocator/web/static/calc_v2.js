@@ -64,6 +64,9 @@
     step3Back:    $('step3-back'),
     wizRestart:   $('wiz-restart'),
 
+    // Noticias
+    noticiasList: $('noticias-list-v2'),
+
     // Progress
     dots:  [null, $('dot-1'), $('dot-2'), $('dot-3')],
     conns: [null, $('conn-1'), $('conn-2')],
@@ -258,7 +261,10 @@
             <div class="inst-row-v2">
               <span class="inst-name-v2">${escapeHtml(inst.nombre)}</span>
               ${tagFor(inst.tipo)}
-              <span class="inst-rate-v2">${escapeHtml(inst.tasa_max_label)}</span>
+              <div class="inst-rate-group">
+                <span class="inst-rate-v2">${escapeHtml(inst.tasa_max_label)}</span>
+                ${inst.tasa_max_limite_label ? `<span class="inst-rate-limit">${escapeHtml(inst.tasa_max_limite_label)}</span>` : ''}
+              </div>
             </div>
             <div class="inst-cond-block">
               <span class="${condClass}">${condIcon} ${escapeHtml(inst.condicion)}</span>
@@ -593,7 +599,52 @@
     goTo(1);
   });
 
+  // ── Noticias ──────────────────────────────────────────────────────────────
+
+  async function loadNoticias() {
+    if (!els.noticiasList) return;
+    try {
+      const res = await fetch('/noticias');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      renderNoticias(data.noticias || []);
+    } catch (err) {
+      els.noticiasList.innerHTML = '<p class="noticias-empty">No se pudieron cargar las noticias.</p>';
+      console.error(err);
+    }
+  }
+
+  function renderNoticias(items) {
+    if (!items.length) {
+      els.noticiasList.innerHTML = '<p class="noticias-empty">Sin cambios de tasa registrados aún.</p>';
+      return;
+    }
+    els.noticiasList.innerHTML = items.map((n) => {
+      const ups = n.cambios.filter((c) => c.subio).length;
+      const dir = ups > n.cambios.length - ups ? 'up' : 'down';
+      const arrow = dir === 'up' ? '▲' : '▼';
+      const cambiosHtml = n.cambios.map((c) => {
+        const cDir = c.subio ? 'up' : 'down';
+        const tramoLabel = n.cambios.length > 1 ? `<span class="noticia-tramo">tramo ${escapeHtml(c.tramo)}</span> ` : '';
+        return `<p class="noticia-detail">${tramoLabel}${escapeHtml(c.tasa_anterior_label)} → <strong class="noticia-${cDir}">${escapeHtml(c.tasa_nueva_label)}</strong></p>`;
+      }).join('');
+      return `
+        <div class="noticia">
+          <span class="noticia-arrow noticia-${dir}" aria-hidden="true">${arrow}</span>
+          <div class="noticia-body">
+            <p class="noticia-title">
+              <strong>${escapeHtml(n.institucion)}</strong>
+              <span class="noticia-fecha">${escapeHtml(n.fecha_label)}</span>
+            </p>
+            ${cambiosHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
 
   loadInstitutions();
+  loadNoticias();
 })();

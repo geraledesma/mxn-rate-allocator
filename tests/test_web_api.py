@@ -226,5 +226,10 @@ def test_noticias_endpoint():
     data = resp.json()
     assert "noticias" in data
     for item in data["noticias"]:
-        for key in ("institucion", "tramo", "fecha_label", "tasa_nueva_label", "subio"):
+        for key in ("institucion", "fecha_label", "fecha_es_vigente", "cambios"):
             assert key in item
+        assert isinstance(item["cambios"], list)
+        assert len(item["cambios"]) > 0
+        for cambio in item["cambios"]:
+            for ck in ("tramo", "tasa_anterior_label", "tasa_nueva_label", "subio"):
+                assert ck in cambio

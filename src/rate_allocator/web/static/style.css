@@ -1098,6 +1098,11 @@ button { font-family: inherit; cursor: pointer; }
   text-transform: uppercase;
   letter-spacing: .05em;
 }
+.noticia-fecha {
+  font-size: .78rem;
+  color: var(--ink-mute);
+  font-weight: 400;
+}
 .noticia-detail {
   margin: 2px 0 0;
   font-size: .84rem;

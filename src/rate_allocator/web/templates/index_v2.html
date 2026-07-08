@@ -5,7 +5,7 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-<link rel="stylesheet" href="/static/style_v2.css?v=5">
+<link rel="stylesheet" href="/static/style_v2.css?v=6">
 {% endblock %}
 
 {% block content %}
@@ -224,8 +224,18 @@
     </div><!-- /wiz-panels -->
   </div><!-- /wiz-card -->
 </div><!-- /wiz-shell -->
+
+<section class="noticias container" id="noticias">
+  <header class="noticias-header">
+    <h2>Cambios recientes de tasas</h2>
+    <p class="noticias-sub">Últimas actualizaciones en las instituciones disponibles.</p>
+  </header>
+  <div class="noticias-list" id="noticias-list-v2">
+    <div class="loading">Cargando noticias…</div>
+  </div>
+</section>
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="/static/calc_v2.js?v=5" defer></script>
+<script src="/static/calc_v2.js?v=6" defer></script>
 {% endblock %}

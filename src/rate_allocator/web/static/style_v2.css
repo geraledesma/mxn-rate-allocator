@@ -427,13 +427,23 @@
   color: var(--ink);
 }
 
-.inst-rate-v2 {
+.inst-rate-group {
   margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+.inst-rate-v2 {
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 1.0625rem;
   color: var(--primary);
-  flex-shrink: 0;
+}
+.inst-rate-limit {
+  font-size: 0.6875rem;
+  color: var(--ink-mute);
+  font-weight: 500;
 }
 
 /* Condition block inside inst card — intentionally 14px: this is the core alert */

@@ -447,20 +447,23 @@
       return;
     }
     els.noticiasList.innerHTML = items.map((n) => {
-      const dir = n.subio ? 'up' : 'down';
-      const arrow = n.subio ? '▲' : '▼';
+      const ups = n.cambios.filter((c) => c.subio).length;
+      const dir = ups > n.cambios.length - ups ? 'up' : 'down';
+      const arrow = dir === 'up' ? '▲' : '▼';
+      const cambiosHtml = n.cambios.map((c) => {
+        const cDir = c.subio ? 'up' : 'down';
+        const tramoLabel = n.cambios.length > 1 ? `<span class="noticia-tramo">tramo ${escapeHtml(c.tramo)}</span> ` : '';
+        return `<p class="noticia-detail">${tramoLabel}${escapeHtml(c.tasa_anterior_label)} → <strong class="noticia-${cDir}">${escapeHtml(c.tasa_nueva_label)}</strong></p>`;
+      }).join('');
       return `
         <div class="noticia">
           <span class="noticia-arrow noticia-${dir}" aria-hidden="true">${arrow}</span>
           <div class="noticia-body">
             <p class="noticia-title">
               <strong>${escapeHtml(n.institucion)}</strong>
-              <span class="noticia-tramo">tramo ${escapeHtml(n.tramo)}</span>
+              <span class="noticia-fecha">${escapeHtml(n.fecha_label)}</span>
             </p>
-            <p class="noticia-detail">
-              ${escapeHtml(n.tasa_anterior_label)} → <strong class="noticia-${dir}">${escapeHtml(n.tasa_nueva_label)}</strong>
-              · efectivo el ${escapeHtml(n.fecha_label)}
-            </p>
+            ${cambiosHtml}
           </div>
         </div>
       `;

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -20,6 +20,8 @@ class TierRateChangeEvent:
 
     effective_from: datetime
     applied_at: datetime
+    vigente_desde: date | None  # institution's stated effective date; None = unknown
+    change_id: str | None       # UUID of the ChangeBatch, for grouping sibling tramo changes
     institution_name: str
     institution_key: str
     tier_index: int
@@ -111,6 +113,8 @@ def load_recent_tier_rate_changes(
             TierRateChangeEvent(
                 effective_from=row.effective_from,
                 applied_at=applied,
+                vigente_desde=batch.vigente_desde if batch else None,
+                change_id=str(row.change_id) if row.change_id else None,
                 institution_name=names.get(bk, bk),
                 institution_key=bk,
                 tier_index=row.tier_index,
