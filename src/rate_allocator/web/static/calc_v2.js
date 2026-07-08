@@ -42,15 +42,12 @@
     resError:        $('res-error'),
     resErrorMsg:     $('res-error-msg'),
     resRetry:        $('res-retry'),
-    resContent31:    $('res-content-31'),
-    resContent32:    $('res-content-32'),
-    resFooter31:     $('res-footer-31'),
-    resFooter32:     $('res-footer-32'),
+    resContent:      $('res-content'),
+    resFooter:       $('res-footer'),
 
     rRate:           $('r-rate'),
     rTotal:          $('r-total'),
     rSubtitle:       $('r-subtitle'),
-    rSubtitle32:     $('r-subtitle-32'),
     rReturn:         $('r-return'),
     deltaV2:         $('delta-v2'),
     rDelta:          $('r-delta'),
@@ -63,11 +60,8 @@
     planCards:       $('plan-cards'),
     affiliateDisc:   $('affiliate-disc'),
 
-    step3BackInst:   $('step3-back-inst'),
-    step3Next32:     $('step3-next-32'),
-    step3Back31:     $('step3-back-31'),
-    step3BackAmount: $('step3-back-amount'),
-    wizRestart:      $('wiz-restart'),
+    step3Back:    $('step3-back'),
+    wizRestart:   $('wiz-restart'),
 
     // Progress
     dots:  [null, $('dot-1'), $('dot-2'), $('dot-3')],
@@ -78,12 +72,11 @@
 
   const state = {
     currentStep: 1,
-    sub3: 1,          // 1 = veredicto, 2 = distribución
     institutions: [],
     selected: new Set(),
     countMode: 'all',
     chart: null,
-    pendingChartData: null,  // stored until sub3=2 makes container visible
+    pendingChartData: null,
   };
 
   // ── Formatting ────────────────────────────────────────────────────────────
@@ -128,6 +121,7 @@
       const dot = els.dots[i];
       dot.classList.toggle('is-done',   i < step);
       dot.classList.toggle('is-active', i === step);
+      dot.textContent = String(i); // restore number (overridden in showResults for dot-3)
       dot.removeAttribute('aria-current');
       if (i === step) dot.setAttribute('aria-current', 'step');
     }
@@ -136,32 +130,8 @@
     }
 
     state.currentStep = step;
-    if (step === 3) state.sub3 = 1; // always start at 3.1 on new calculation
     const activePanel = document.querySelector('.wiz-panel[data-state="active"] .wiz-panel-inner');
     if (activePanel) activePanel.scrollTop = 0;
-  }
-
-  function goToSub3(sub) {
-    state.sub3 = sub;
-
-    els.resContent31.hidden = (sub !== 1);
-    els.resContent32.hidden = (sub !== 2);
-    els.resFooter31.hidden  = (sub !== 1);
-    els.resFooter32.hidden  = (sub !== 2);
-
-    if (sub === 2 && state.pendingChartData) {
-      // Render chart now that the container is visible — Chart.js will measure correctly
-      renderChart(state.pendingChartData);
-      state.pendingChartData = null;
-    } else if (sub === 2 && state.chart) {
-      // Subsequent visits: just resize (container may have changed dimensions)
-      requestAnimationFrame(() => requestAnimationFrame(() => state.chart.resize()));
-    }
-
-    const inner = document.querySelector('#wiz-panel-3 .wiz-panel-inner');
-    if (inner) inner.scrollTop = 0;
-
-    gtag_event('wizard_sub3', { sub });
   }
 
   // ── Step 1 — Amount ───────────────────────────────────────────────────────
@@ -348,29 +318,39 @@
   // ── Step 3 — Calculation + Results ───────────────────────────────────────
 
   function showLoading() {
-    els.resLoading.hidden    = false;
-    els.resError.hidden      = true;
-    els.resContent31.hidden  = true;
-    els.resContent32.hidden  = true;
-    els.resFooter31.hidden   = true;
-    els.resFooter32.hidden   = true;
+    els.resLoading.hidden  = false;
+    els.resError.hidden    = true;
+    els.resContent.hidden  = true;
+    els.resFooter.hidden   = true;
   }
 
   function showError(msg) {
-    els.resLoading.hidden    = true;
-    els.resError.hidden      = false;
+    els.resLoading.hidden  = true;
+    els.resError.hidden    = false;
     els.resErrorMsg.textContent = msg;
-    els.resContent31.hidden  = true;
-    els.resContent32.hidden  = true;
-    els.resFooter31.hidden   = false; // back buttons let the user adjust and retry
-    els.resFooter32.hidden   = true;
+    els.resContent.hidden  = true;
+    els.resFooter.hidden   = false; // back button still usable
     gtag_event('plan_error');
   }
 
   function showResults() {
     els.resLoading.hidden = true;
     els.resError.hidden   = true;
-    goToSub3(1); // always start at veredicto
+    els.resContent.hidden = false;
+    els.resFooter.hidden  = false;
+
+    // Render chart now that the container is visible
+    if (state.pendingChartData) {
+      renderChart(state.pendingChartData);
+      state.pendingChartData = null;
+    }
+
+    // Dot 3 → completed state (✓)
+    els.dots[3].textContent = '✓';
+    els.dots[3].classList.add('is-done');
+    els.dots[3].classList.remove('is-active');
+
+    gtag_event('plan_shown');
   }
 
   async function calculate() {
@@ -422,7 +402,7 @@
 
     const asig = data.asignaciones || [];
 
-    // ── 3.1 veredicto ───────────────────────────────────────────────────────
+    // ── Veredicto ────────────────────────────────────────────────────────────
 
     els.rRate.textContent = fmtPct(data.tasa_efectiva);
     els.rTotal.textContent = fmtMXN(total);
@@ -447,10 +427,9 @@
       els.accountsCallout.hidden = true;
     }
 
-    // ── 3.2 distribución ────────────────────────────────────────────────────
+    // ── Distribución ─────────────────────────────────────────────────────────
 
-    els.rSubtitle32.innerHTML = `${escapeHtml(fmtPct(data.tasa_efectiva))} · ${escapeHtml(fmtMXN(total))}`;
-
+    // Store chart data — rendered in showResults() once container is visible
     if (data.chart_data && asig.length > 0) {
       state.pendingChartData = data.chart_data;
       els.chartWrap.hidden = false;
@@ -461,7 +440,6 @@
 
     renderPlanCards(asig);
 
-    // Show affiliate disclosure if any card has a link
     const hasAffiliate = asig.some((a) => AFFILIATE[a.institucion]);
     if (els.affiliateDisc) els.affiliateDisc.hidden = !hasAffiliate;
 
@@ -501,18 +479,16 @@
         : '';
 
       const affiliateUrl = AFFILIATE[a.institucion];
-      const affiliateCta = affiliateUrl ? `
-        <div class="plan-affiliate-v2">
-          <a href="${escapeAttr(affiliateUrl)}"
-             target="_blank"
-             rel="noopener sponsored"
-             data-inst="${escapeAttr(a.institucion)}"
-             class="plan-affiliate-link">
-            Abrir cuenta en ${escapeHtml(a.institucion)} →
-          </a>
-          <span class="plan-affiliate-disc">*enlace de afiliado</span>
-        </div>
-      ` : '';
+      // Action: affiliate link replaces static text when available
+      const actionLine = affiliateUrl
+        ? `<a href="${escapeAttr(affiliateUrl)}"
+              target="_blank"
+              rel="noopener sponsored"
+              data-inst="${escapeAttr(a.institucion)}"
+              class="plan-card-action-link">
+             Abrir cuenta en ${escapeHtml(a.institucion)} →
+           </a>`
+        : `<p class="plan-card-action-v2">Abre una cuenta y deposita esta cantidad</p>`;
 
       return `
         <article class="plan-card-v2">
@@ -521,7 +497,7 @@
               <p class="plan-card-inst-v2">
                 ${escapeHtml(a.institucion)} ${tagFor(a.tipo)}
               </p>
-              <p class="plan-card-action-v2">Abre una cuenta y deposita esta cantidad</p>
+              ${actionLine}
             </div>
             <div class="plan-card-amount-v2">${escapeHtml(a.monto_total_label)}</div>
           </header>
@@ -534,13 +510,12 @@
             <span>Ganarás aprox. <strong>${escapeHtml(a.rendimiento_label)}</strong></span>
           </div>
           ${condBlock}
-          ${affiliateCta}
         </article>
       `;
     }).join('');
 
     // GA4: track affiliate link clicks
-    els.planCards.querySelectorAll('.plan-affiliate-link').forEach((link) => {
+    els.planCards.querySelectorAll('.plan-card-action-link').forEach((link) => {
       link.addEventListener('click', () => {
         gtag_event('affiliate_click', { institution: link.dataset.inst });
       });
@@ -607,15 +582,10 @@
 
   // ── Step 3 navigation ─────────────────────────────────────────────────────
 
-  els.step3BackInst.addEventListener('click', () => goTo(2));
-  els.step3Next32.addEventListener('click', () => goToSub3(2));
-  els.step3Back31.addEventListener('click', () => goToSub3(1));
-  els.step3BackAmount.addEventListener('click', () => goTo(1));
+  els.step3Back.addEventListener('click', () => goTo(2));
   els.resRetry.addEventListener('click', () => goTo(2));
 
   els.wizRestart.addEventListener('click', () => {
-    // Reset state
-    state.sub3 = 1;
     applyCountMode('all');
     els.amountInput.value = fmtNumber(Number(els.slider.value));
     gtag_event('wizard_restart');

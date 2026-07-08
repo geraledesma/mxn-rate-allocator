@@ -754,6 +754,52 @@
 .error-icon { font-size: 2rem; line-height: 1; }
 .error-msg { color: var(--ink-soft); max-width: 280px; }
 
+/* ── Paso 3 — distribution section ─────────────────────────────────────────── */
+
+.res-dist {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.res-dist-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--primary);
+  margin: 0 0 0.875rem;
+}
+
+/* Affiliate link inline in plan card header (replaces static action text) */
+.plan-card-action-link {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+  border-bottom: 1px solid var(--primary-soft);
+  padding-bottom: 1px;
+  transition: border-color .15s;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.plan-card-action-link:hover { border-color: var(--primary); }
+
+/* ── Stagger reveal for results ─────────────────────────────────────────────── */
+
+@keyframes res-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#res-content > .wiz-header    { animation: res-fade-in .3s ease-out backwards; }
+#res-content > .metrics-v2    { animation: res-fade-in .3s ease-out .1s backwards; }
+#res-content > .delta-v2      { animation: res-fade-in .3s ease-out .18s backwards; }
+#res-content > .accounts-callout { animation: res-fade-in .3s ease-out .24s backwards; }
+#res-content > .res-dist      { animation: res-fade-in .35s ease-out .34s backwards; }
+
 /* ── Accessibility floor ────────────────────────────────────────────────────── */
 
 .wiz-cta:focus-visible,
@@ -768,7 +814,8 @@
 @media (prefers-reduced-motion: reduce) {
   .wiz-panel,
   .wiz-dot,
-  .wiz-connector.is-done {
+  .wiz-connector.is-done,
+  #res-content > * {
     transition: none;
     animation: none;
   }
