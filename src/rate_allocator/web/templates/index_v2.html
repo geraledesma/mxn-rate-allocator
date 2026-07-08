@@ -1,0 +1,231 @@
+{% extends "_base.html" %}
+
+{% block title %}Calculadora — Merqurio (v2 beta){% endblock %}
+{% block description %}Calculadora gratuita: distribuye tu ahorro entre bancos y SOFIPOs de México paso a paso para el mejor rendimiento.{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+<link rel="stylesheet" href="/static/style_v2.css">
+{% endblock %}
+
+{% block content %}
+<div class="wiz-shell">
+
+  <!-- Card wrapper (visual on desktop, transparent on mobile) -->
+  <div class="wiz-card">
+
+    <!-- Progress dots -->
+    <nav class="wiz-progress" aria-label="Progreso del formulario">
+      <div class="wiz-dot is-active" id="dot-1" aria-current="step">1</div>
+      <div class="wiz-connector" id="conn-1"></div>
+      <div class="wiz-dot" id="dot-2">2</div>
+      <div class="wiz-connector" id="conn-2"></div>
+      <div class="wiz-dot" id="dot-3">3</div>
+    </nav>
+
+    <!-- ─── Panels ──────────────────────────────────────────────────── -->
+    <div class="wiz-panels">
+
+      <!-- ══ PASO 1 — Monto ════════════════════════════════════════════ -->
+      <section class="wiz-panel" id="wiz-panel-1" data-state="active"
+               aria-label="Paso 1: ¿Cuánto quieres hacer rendir?">
+        <div class="wiz-panel-inner">
+
+          <header class="wiz-header">
+            <p class="wiz-eyebrow">Paso 1 de 3</p>
+            <h1 class="wiz-title">¿Cuánto quieres hacer rendir?</h1>
+            <p class="wiz-sub">Tu guardadito completo, o lo que vas apartando. Puedes ajustarlo después.</p>
+          </header>
+
+          <div class="amount-hero">
+            <div class="amount-display-v2">
+              <span class="amount-prefix">$</span>
+              <input
+                type="text"
+                inputmode="numeric"
+                id="amount-input"
+                value="{{ '{:,}'.format(monto_default) }}"
+                aria-label="Monto en pesos mexicanos"
+              >
+              <span class="amount-suffix">MXN</span>
+            </div>
+            <input
+              type="range"
+              id="amount-slider"
+              min="{{ monto_min }}"
+              max="{{ monto_max }}"
+              step="1000"
+              value="{{ monto_default }}"
+              aria-label="Deslizador de monto"
+            >
+            <div class="amount-marks" aria-hidden="true">
+              <span>${{ '{:,}'.format(monto_min) }}</span>
+              <span>${{ '{:,.0f}'.format(monto_max / 2) }}</span>
+              <span>${{ '{:,}'.format(monto_max) }}</span>
+            </div>
+          </div>
+
+          <div class="wiz-hint">
+            <span class="pill pill-warm">Desde $1,000 MXN</span>
+            <span class="pill">Sin registro</span>
+            <span class="pill">Datos al {{ ultima_actualizacion }}</span>
+          </div>
+
+        </div>
+
+        <div class="wiz-footer">
+          <button type="button" class="wiz-cta" id="step1-next">
+            <span class="cta-text">Elegir instituciones →</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ══ PASO 2 — Instituciones ═════════════════════════════════════ -->
+      <section class="wiz-panel" id="wiz-panel-2" data-state="after"
+               aria-label="Paso 2: ¿En cuántas cuentas?">
+        <div class="wiz-panel-inner">
+
+          <header class="wiz-header">
+            <p class="wiz-eyebrow">Paso 2 de 3</p>
+            <h2 class="wiz-title">¿En cuántas cuentas?</h2>
+            <p class="wiz-sub">Más cuentas = mayor rendimiento; menos cuentas = más simple. Tú decides cuántas quieres abrir.</p>
+          </header>
+
+          <!-- Count quick-selector -->
+          <div class="count-section">
+            <p class="count-label">Número de instituciones</p>
+            <div class="count-chips" id="count-chips" role="group" aria-label="Selecciona cuántas instituciones incluir">
+              <button type="button" class="count-chip" data-count="1">1</button>
+              <button type="button" class="count-chip" data-count="2">2</button>
+              <button type="button" class="count-chip active" data-count="3" aria-pressed="true">3</button>
+              <button type="button" class="count-chip" data-count="4">4</button>
+              <button type="button" class="count-chip" data-count="5">5</button>
+              <button type="button" class="count-chip" data-count="all" id="chip-all">Todas</button>
+            </div>
+            <p class="count-hint" id="count-hint">Seleccionará las 3 instituciones con mayor tasa.</p>
+          </div>
+
+          <!-- Expandable institution list -->
+          <div class="inst-section">
+            <button
+              type="button"
+              class="inst-toggle"
+              id="inst-toggle"
+              aria-expanded="false"
+              aria-controls="inst-list-v2"
+            >
+              <span id="inst-toggle-label">Ver y ajustar instituciones</span>
+              <span class="inst-toggle-arrow" aria-hidden="true">▾</span>
+            </button>
+            <div class="inst-list-v2" id="inst-list-v2" hidden>
+              <p class="count-hint" style="padding: 0.25rem 0.25rem 0;">Cargando…</p>
+            </div>
+          </div>
+
+          <!-- Condition summary (shown only when selected institutions have conditions) -->
+          <div class="cond-summary" id="cond-summary" hidden role="alert">
+            <div class="cond-summary-icon" aria-hidden="true">⚠️</div>
+            <div>
+              <p class="cond-summary-title">Algunas cuentas tienen requisitos</p>
+              <p class="cond-summary-body" id="cond-summary-body">
+                Para acceder a las tasas mostradas, deberás cumplir las condiciones señaladas.
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="wiz-footer wiz-footer-2col">
+          <button type="button" class="wiz-back" id="step2-back">← Atrás</button>
+          <button type="button" class="wiz-cta" id="step2-calc">
+            <span class="cta-text">Calcular mi plan →</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ══ PASO 3 — Resultados ════════════════════════════════════════ -->
+      <section class="wiz-panel" id="wiz-panel-3" data-state="after"
+               aria-label="Paso 3: Tu plan personalizado" aria-live="polite">
+        <div class="wiz-panel-inner" id="results-inner">
+
+          <!-- Loading -->
+          <div class="results-loading-block" id="res-loading" hidden>
+            <div class="loader-ring" aria-hidden="true"></div>
+            <p>Calculando tu plan…</p>
+          </div>
+
+          <!-- Error -->
+          <div class="results-error-block" id="res-error" hidden>
+            <p class="error-icon" aria-hidden="true">⚠️</p>
+            <p class="error-msg" id="res-error-msg"></p>
+            <button type="button" class="wiz-back" id="res-retry" style="margin-top:.5rem">← Ajustar y recalcular</button>
+          </div>
+
+          <!-- Results content -->
+          <div id="res-content" hidden>
+
+            <header class="wiz-header">
+              <p class="wiz-eyebrow is-green">Paso 3 de 3 · Tu plan</p>
+              <h2 class="wiz-title">
+                Ganarías <span id="r-rate" class="results-rate-hl">—</span> anual
+              </h2>
+              <p class="wiz-sub" id="r-subtitle">Invirtiendo <strong id="r-total">—</strong> según este plan.</p>
+            </header>
+
+            <!-- Key metric -->
+            <div class="metrics-v2">
+              <div class="metric-v2">
+                <p class="metric-label-v2">Rendimiento esperado (1 año)</p>
+                <p class="metric-val-v2" id="r-return">—</p>
+              </div>
+            </div>
+
+            <!-- Delta vs CETES -->
+            <div class="delta-v2" id="delta-v2" hidden>
+              <span class="delta-arrow" aria-hidden="true">↗</span>
+              <p style="margin:0">
+                Ganas <strong id="r-delta">—</strong> más que si lo dejaras en
+                CETES 28 días (<span id="r-cetes-rate">6.25%</span>)
+              </p>
+            </div>
+
+            <!-- Accounts callout — key UX improvement -->
+            <div class="accounts-callout" id="accounts-callout" hidden>
+              <div class="accounts-icon" aria-hidden="true">🏦</div>
+              <div>
+                <p class="accounts-headline">Este plan requiere <strong id="accounts-count">—</strong></p>
+                <p class="accounts-names" id="accounts-names"></p>
+              </div>
+            </div>
+
+            <!-- Bar chart -->
+            <div class="chart-wrap-v2" id="chart-wrap" hidden>
+              <canvas id="alloc-chart" aria-label="Gráfica de distribución por institución"></canvas>
+            </div>
+
+            <!-- AdSense inline slot -->
+            <aside class="ad-slot ad-slot-inline" aria-hidden="true" data-slot="inline">
+              <span class="ad-label">Espacio publicitario</span>
+            </aside>
+
+            <!-- Plan cards -->
+            <div class="plan-cards-v2" id="plan-cards"></div>
+
+          </div>
+        </div>
+
+        <!-- Footer with back actions — shown after results load -->
+        <div class="wiz-footer wiz-footer-split" id="res-footer" hidden>
+          <button type="button" class="wiz-back" id="step3-back-amount">← Cambiar monto</button>
+          <button type="button" class="wiz-back" id="step3-back-inst">← Cambiar instituciones</button>
+        </div>
+      </section>
+
+    </div><!-- /wiz-panels -->
+  </div><!-- /wiz-card -->
+</div><!-- /wiz-shell -->
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/calc_v2.js" defer></script>
+{% endblock %}

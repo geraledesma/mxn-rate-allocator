@@ -236,6 +236,26 @@ async def index(request: Request) -> HTMLResponse:
     )
 
 
+@app.get("/v2", response_class=HTMLResponse)
+async def index_v2(request: Request) -> HTMLResponse:
+    """Wizard beta — mobile-first step-by-step flow. Does not replace /."""
+    return templates.TemplateResponse(
+        request,
+        "index_v2.html",
+        _page_context(request, {
+            "monto_min": TOTAL_MIN,
+            "monto_max": 3_000_000,
+            "monto_default": 100_000,
+        }),
+    )
+
+
+@app.get("/compare-v2", response_class=HTMLResponse)
+async def compare_v2(request: Request) -> HTMLResponse:
+    """Dev-only comparison page: desktop vs mobile side by side."""
+    return templates.TemplateResponse(request, "compare_v2.html", {})
+
+
 @app.get("/sofipo", response_class=HTMLResponse)
 async def page_sofipo(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "sofipo.html", _page_context(request))

@@ -20,7 +20,7 @@ client = TestClient(app)
 
 @pytest.mark.parametrize(
     "path",
-    ["/", "/sofipo", "/ipab", "/glosario", "/como-funciona", "/privacidad"],
+    ["/", "/sofipo", "/ipab", "/glosario", "/como-funciona", "/privacidad", "/v2"],
 )
 def test_page_renders(path):
     resp = client.get(path)
@@ -28,6 +28,16 @@ def test_page_renders(path):
     assert "text/html" in resp.headers["content-type"]
     # Legal disclaimer must appear on every page (FOUNDATION requirement)
     assert "carácter informativo" in resp.text
+
+
+def test_v2_wizard_structure():
+    resp = client.get("/v2")
+    assert resp.status_code == 200
+    # Wizard shell and all 3 panels present
+    assert "wiz-shell" in resp.text
+    assert "wiz-panel" in resp.text
+    assert "calc_v2.js" in resp.text
+    assert "style_v2.css" in resp.text
 
 
 def test_robots_and_sitemap():
