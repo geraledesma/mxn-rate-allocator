@@ -490,21 +490,14 @@ async def post_allocate(body: AllocateRequest) -> JSONResponse:
     })
 
 
-def _noticias_fecha(ref_date: date, es_vigente: bool) -> str:
-    label = _date_es(ref_date)
-    return label if es_vigente else f"detectado el {label}"
-
 
 @app.get("/noticias")
 async def get_noticias() -> JSONResponse:
     """Recent rate changes grouped by institution+batch, newest first.
 
-    Each group has:
-      institucion, fecha_label, fecha_es_vigente, cambios:[{tramo, tasa_anterior_label,
-      tasa_nueva_label, subio}]
-
-    fecha_es_vigente=True means the date comes from the institution's stated effective
-    date (vigente_desde). False means it's when we detected the change (applied_at).
+    Each group: {institucion, fecha_label, cambios:[{tramo, tasa_anterior_label,
+    tasa_nueva_label, subio}]}. Only changes with a confirmed institutional
+    effective date (vigente_desde) are published.
     """
     # key=(institution_key, batch_group) → (sort_ts, group_dict)
     groups: dict[tuple[str, str], tuple[float, dict]] = {}
@@ -518,20 +511,16 @@ async def get_noticias() -> JSONResponse:
             events = load_recent_tier_rate_changes(session, limit=NOTICIAS_LIMIT)
 
         for e in events:
-            if e.vigente_desde:
-                ref_date = e.vigente_desde
-                es_vigente = True
-            else:
-                ref_date = _to_date(e.applied_at)
-                es_vigente = False
+            if not e.vigente_desde:
+                continue  # only publish changes with a confirmed institutional effective date
+            ref_date = e.vigente_desde
             ts = float(datetime.combine(ref_date, datetime.min.time()).replace(tzinfo=timezone.utc).timestamp())
             group_key = (e.institution_key, e.change_id or str(ref_date))
 
             if group_key not in groups:
                 groups[group_key] = (ts, {
                     "institucion": e.institution_name,
-                    "fecha_label": _noticias_fecha(ref_date, es_vigente),
-                    "fecha_es_vigente": es_vigente,
+                    "fecha_label": _date_es(ref_date),
                     "cambios": [],
                 })
             groups[group_key][1]["cambios"].append({
@@ -556,7 +545,6 @@ async def get_noticias() -> JSONResponse:
             groups[group_key] = (ts, {
                 "institucion": e.institution,
                 "fecha_label": _date_es(ref_date),
-                "fecha_es_vigente": True,
                 "cambios": [],
             })
             seen_keys.add(group_key)
