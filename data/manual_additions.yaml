@@ -5,24 +5,40 @@
 # Cada institución debe tener source_url apuntando al T&C vigente.
 
 institutions:
-  - name: PlataCard
-    institution_type: banco  # "Banco Plata S.A., Institución de Banca Múltiple" (CNBV dic 2024). IPAB.
+  # BANCO PLATA — Ahorro Flexible
+  # Fuente T&C: https://prime.platacard.mx/file-service/static/eula/ahorro_flexible_booklet.pdf
+  # Fuente tasas: https://bancoplata.mx/es/cuenta (sección "Tasas anuales")
+  # "Banco Plata S.A., Institución de Banca Múltiple" (CNBV dic 2024) — cobertura IPAB.
+  #
+  # PRODUCTOS y MEMBRESÍAS (jul 2026, tasas nominales, no GAT):
+  #   Plata Cuenta (cuenta corriente):  7% primeros $20,000 — requiere Plata+
+  #   Ahorro Flexible sin Plata+:       7% sin límite — sin costo adicional
+  #   Ahorro Flexible con Plata+:      10% sin límite — membresía $114.84/mes ($99+IVA)
+  #   Ahorro Fijo sin Plata+:          7%–8%  · 30–360 días — FUERA DE ALCANCE (plazo fijo)
+  #   Ahorro Fijo con Plata+:          9%–11% · 30–360 días — FUERA DE ALCANCE (plazo fijo)
+  #   Promo jul 2026: 11% al solicitar antes del 9-jul — solo nuevos clientes.
+  #
+  # MODELO: dos instituciones separadas para que el usuario elija en paso 2.
+  #   Break-even membresía: $114.84*12 / (0.10-0.07) ≈ $45,936 MXN.
+  #   Con >$45,936 en Plata, conviene Plata+. El optimizer asigna correctamente
+  #   si el usuario selecciona solo una de las dos opciones.
+
+  - name: "Plata · Ahorro Flexible"
+    institution_type: banco
     source_url: https://prime.platacard.mx/file-service/static/eula/ahorro_flexible_booklet.pdf
-    # T&C Ahorro Flexible — confirmado mar 2026. Tasas nominales (no GAT):
-    #   Variante base:  7% nominal — Plata Cuenta sin membresía (GAT nominal 7.23%)
-    #   Variante Plata+: 10% nominal — con membresía Plata+ ($114.84/mes = $99+IVA)
-    #   Promo jul 2026: 11% hasta jul 3 — expiró.
-    # MODELO: dos tramos alternativos en el mismo límite (igual que Uala).
-    #   El optimizer decide si $114.84/mes de membresía vale vs el 3% extra.
-    #   Break-even: $114.84*12 / 0.03 ≈ $45,936 MXN en PlataCard.
     tiers:
       - limit: .inf
-        rate: 0.07  # Base — sin membresía
+        rate: 0.07  # Ahorro Flexible sin membresía Plata+
+
+  - name: "Plata · Ahorro Plata+"
+    institution_type: banco
+    source_url: https://prime.platacard.mx/file-service/static/eula/ahorro_flexible_booklet.pdf
+    tiers:
       - limit: .inf
-        rate: 0.10  # Plata+ — con membresía ($114.84/mes)
+        rate: 0.10  # Ahorro Flexible con membresía Plata+ ($114.84/mes = $99+IVA)
         constraints:
           - type: monthly_expense
-            cost: 114.84  # $99 + IVA/mes membresía Plata+
+            cost: 114.84  # membresía Plata+
             benefit: membership_plan
             condition_value: 114.84
             active: true

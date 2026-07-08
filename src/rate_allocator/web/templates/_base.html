@@ -71,14 +71,14 @@
 
   <header class="site-header">
     <div class="container nav">
-      <a class="brand" href="/">
+      <a class="brand" href="/" id="nav-home">
         <span class="brand-mark" aria-hidden="true">%</span>
         <span class="brand-name">Merqurio</span>
         <span class="brand-by">Calculadora de tasas de ahorro</span>
       </a>
       <nav aria-label="Navegación principal">
         <ul class="nav-links">
-          <li><a href="/">Calculadora</a></li>
+          <li><a href="/" id="nav-calc">Calculadora</a></li>
           <li><a href="/sofipo">¿Qué es una SOFIPO?</a></li>
           <li><a href="/ipab">IPAB &amp; Prosofipo</a></li>
           <li><a href="/glosario">Glosario</a></li>
@@ -157,6 +157,16 @@
       btn.addEventListener('click', () => {
         const open = links.classList.toggle('open');
         btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+    })();
+    (function () {
+      const p = location.pathname;
+      if (p === '/v2' || p.startsWith('/v2/') || p === '/compare-v2') sessionStorage.setItem('mx-calc-home', '/v2');
+      else if (p === '/') sessionStorage.removeItem('mx-calc-home');
+      const home = sessionStorage.getItem('mx-calc-home') || '/';
+      ['nav-home', 'nav-calc'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.href = home;
       });
     })();
   </script>
