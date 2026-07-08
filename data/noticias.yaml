@@ -1,13 +1,13 @@
-# Cambios de tasas curados manualmente — solo aparecen cuando se conoce la fecha
-# efectiva oficial de la institución (vigente_desde).
+# Cambios de tasas verificados con fuente primaria oficial (email institucional o T&C).
+# Solo aparecen cuando se conoce la fecha efectiva confirmada por la institución.
 # Tasas en fracción decimal anual (0.13 = 13%).
 #
 # Formato por entrada:
-#   institution:    nombre tal como aparece en la UI
+#   institution:    nombre como aparece en la UI
 #   effective_from: fecha en que el cambio entró en vigor (YYYY-MM-DD)
-#   descripcion:    narrativa del cambio — qué pasó y por qué importa
-#   source:         URL o documento fuente
-#   cambios:        lista de tramos afectados
+#   descripcion:    narrativa concisa del cambio — qué pasó
+#   source:         fuente primaria verificada
+#   cambios:        tramos afectados
 #     - tier:       número de tramo (1 = primero)
 #       old_rate:   tasa anterior
 #       new_rate:   tasa nueva
@@ -15,12 +15,11 @@
 entries:
   - institution: OpenBank
     effective_from: "2026-03-10"
-    source: "T&C Openbank México — publicación mar 2026"
+    source: "Email oficial OpenBank — 'Subimos el rendimiento de tu Apartado Open', mar 2026"
     descripcion: >
-      Reestructuración de tramos: OpenBank sustituyó su tasa plana de 9%
-      por un esquema escalonado de tres tramos. El tramo primario (hasta ~$499,999 MXN)
-      subió a 13%; los tramos de saldos mayores quedaron en tasas menores.
-      El cambio coincidió con el lanzamiento formal de OpenBank en México.
+      Apartado Open subió de tasa plana de 9% a esquema escalonado:
+      13% en los primeros $40,000 MXN, 7.30% de $40,001 a $1,000,000,
+      y 7.00% a partir de $1,000,000.
     cambios:
       - tier: 1
         old_rate: 0.09
@@ -34,11 +33,10 @@ entries:
 
   - institution: Plata
     effective_from: "2026-05-07"
-    source: "T&C Banco Plata — actualización may 2026"
+    source: "Email oficial Banco Plata — 'Actualización de tasas de Ahorro Flexible y Fijo', may 2026"
     descripcion: >
-      Reducción en Ahorro Plata+: la tasa con membresía bajó de 12% a 10%.
-      La membresía Plata+ cuesta $114.84/mes ($99 + IVA). El punto de quiebre
-      para que convenga sobre la cuenta sin membresía (7%) está en ~$45,936 MXN.
+      Plata reduce la tasa de Ahorro Flexible con membresía Plata+
+      a 10% anual (GAT nominal 10.47%). Las tasas sin membresía no cambian.
     cambios:
       - tier: 1
         old_rate: 0.12
