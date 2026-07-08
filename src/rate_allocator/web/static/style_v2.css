@@ -4,6 +4,9 @@
    _base.html already loads it.
 ============================================================================= */
 
+/* Ensure [hidden] attribute always wins over author display rules */
+[hidden] { display: none !important; }
+
 /* ── Shell ─────────────────────────────────────────────────────────────────── */
 
 .wiz-shell {
@@ -769,6 +772,76 @@
     transition: none;
     animation: none;
   }
+}
+
+/* ── Paso 3 sub-title compact ───────────────────────────────────────────────── */
+
+.wiz-title-sm {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+/* ── Affiliate ──────────────────────────────────────────────────────────────── */
+
+.plan-affiliate-v2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.625rem 0 0.25rem;
+  flex-wrap: wrap;
+}
+
+.plan-affiliate-link {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.plan-affiliate-link:hover { text-decoration: underline; }
+
+.plan-affiliate-disc {
+  font-size: 0.7rem;
+  color: var(--ink-mute);
+}
+
+.affiliate-disc-global {
+  font-size: 0.75rem;
+  color: var(--ink-mute);
+  line-height: 1.5;
+  margin: 1rem 0 0.5rem;
+  padding: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+/* ── Restart button ─────────────────────────────────────────────────────────── */
+
+.wiz-restart {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--ink-mute);
+  padding: 1rem 0 0.5rem;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  min-height: 44px;
+}
+
+.wiz-restart:hover { color: var(--ink); }
+.wiz-restart:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* ── Desktop override ───────────────────────────────────────────────────────── */

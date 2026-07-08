@@ -2,9 +2,20 @@
 (function () {
   'use strict';
 
+  // Provisional affiliate links — replace with real referral URLs once registered.
   const AFFILIATE = {
-    // 'Klar':    'https://klar.mx/?ref=TUCODIGO',
-    // 'Revolut': 'https://revolut.com/referral/TUCODIGO',
+    'DiDi':         'https://moneydidi.mx/ahorra/',
+    'Revolut':      'https://www.revolut.com/es-MX/',
+    'Nu':           'https://nu.com.mx/',
+    'Openbank':     'https://www.openbank.mx/',
+    'Mercado Pago': 'https://www.mercadopago.com.mx/cuenta-de-ahorro',
+    'Klar':         'https://www.klar.mx/',
+    'Uala':         'https://www.uala.com.mx/',
+    'PlataCard':    'https://www.platacard.mx/',
+    'Stori':        'https://www.storicard.com/',
+    'Mifel':        'https://www.mifel.com.mx/',
+    'BONDDIA':      'https://www.gbmhomebroker.com/bonddia',
+    'Supertasas':   'https://www.supertasas.com/',
   };
 
   // ── DOM refs ──────────────────────────────────────────────────────────────
@@ -22,35 +33,41 @@
     step2Calc:    $('step2-calc'),
     countChips:   $('count-chips'),
     countHint:    $('count-hint'),
-    instToggle:   $('inst-toggle'),
-    instToggleLabel: $('inst-toggle-label'),
     instList:     $('inst-list-v2'),
     condSummary:  $('cond-summary'),
     condSummaryBody: $('cond-summary-body'),
 
     // Step 3
-    resLoading:   $('res-loading'),
-    resError:     $('res-error'),
-    resErrorMsg:  $('res-error-msg'),
-    resRetry:     $('res-retry'),
-    resContent:   $('res-content'),
-    resFooter:    $('res-footer'),
-    rRate:        $('r-rate'),
-    rTotal:       $('r-total'),
-    rSubtitle:    $('r-subtitle'),
-    rReturn:      $('r-return'),
-    deltaV2:      $('delta-v2'),
-    rDelta:       $('r-delta'),
-    rCetesRate:   $('r-cetes-rate'),
+    resLoading:      $('res-loading'),
+    resError:        $('res-error'),
+    resErrorMsg:     $('res-error-msg'),
+    resRetry:        $('res-retry'),
+    resContent31:    $('res-content-31'),
+    resContent32:    $('res-content-32'),
+    resFooter31:     $('res-footer-31'),
+    resFooter32:     $('res-footer-32'),
+
+    rRate:           $('r-rate'),
+    rTotal:          $('r-total'),
+    rSubtitle:       $('r-subtitle'),
+    rSubtitle32:     $('r-subtitle-32'),
+    rReturn:         $('r-return'),
+    deltaV2:         $('delta-v2'),
+    rDelta:          $('r-delta'),
+    rCetesRate:      $('r-cetes-rate'),
     accountsCallout: $('accounts-callout'),
     accountsCount:   $('accounts-count'),
     accountsNames:   $('accounts-names'),
-    chartWrap:    $('chart-wrap'),
-    chartCanvas:  $('alloc-chart'),
-    planCards:    $('plan-cards'),
+    chartWrap:       $('chart-wrap'),
+    chartCanvas:     $('alloc-chart'),
+    planCards:       $('plan-cards'),
+    affiliateDisc:   $('affiliate-disc'),
 
-    step3BackAmount: $('step3-back-amount'),
     step3BackInst:   $('step3-back-inst'),
+    step3Next32:     $('step3-next-32'),
+    step3Back31:     $('step3-back-31'),
+    step3BackAmount: $('step3-back-amount'),
+    wizRestart:      $('wiz-restart'),
 
     // Progress
     dots:  [null, $('dot-1'), $('dot-2'), $('dot-3')],
@@ -61,10 +78,12 @@
 
   const state = {
     currentStep: 1,
-    institutions: [],  // raw from API, sorted by rate desc
+    sub3: 1,          // 1 = veredicto, 2 = distribución
+    institutions: [],
     selected: new Set(),
-    countMode: 3,      // 1-5 or 'all'
+    countMode: 'all',
     chart: null,
+    pendingChartData: null,  // stored until sub3=2 makes container visible
   };
 
   // ── Formatting ────────────────────────────────────────────────────────────
@@ -117,9 +136,32 @@
     }
 
     state.currentStep = step;
-    // Scroll active panel to top
+    if (step === 3) state.sub3 = 1; // always start at 3.1 on new calculation
     const activePanel = document.querySelector('.wiz-panel[data-state="active"] .wiz-panel-inner');
     if (activePanel) activePanel.scrollTop = 0;
+  }
+
+  function goToSub3(sub) {
+    state.sub3 = sub;
+
+    els.resContent31.hidden = (sub !== 1);
+    els.resContent32.hidden = (sub !== 2);
+    els.resFooter31.hidden  = (sub !== 1);
+    els.resFooter32.hidden  = (sub !== 2);
+
+    if (sub === 2 && state.pendingChartData) {
+      // Render chart now that the container is visible — Chart.js will measure correctly
+      renderChart(state.pendingChartData);
+      state.pendingChartData = null;
+    } else if (sub === 2 && state.chart) {
+      // Subsequent visits: just resize (container may have changed dimensions)
+      requestAnimationFrame(() => requestAnimationFrame(() => state.chart.resize()));
+    }
+
+    const inner = document.querySelector('#wiz-panel-3 .wiz-panel-inner');
+    if (inner) inner.scrollTop = 0;
+
+    gtag_event('wizard_sub3', { sub });
   }
 
   // ── Step 1 — Amount ───────────────────────────────────────────────────────
@@ -159,19 +201,19 @@
 
   updateSliderTrack();
 
-  // ── Step 2 — Institutions + Count selector ────────────────────────────────
+  // ── Step 2 — Institutions (which-first) ──────────────────────────────────
 
   async function loadInstitutions() {
     try {
       const res = await fetch('/instituciones');
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
-      state.institutions = data.instituciones; // already sorted by rate desc
+      state.institutions = data.instituciones;
       updateChipAll();
       applyCountMode(state.countMode);
+      renderInstList(); // list always visible
     } catch (err) {
       els.instList.innerHTML = '<p class="count-hint" style="color:var(--warning);padding:.25rem">No se pudo cargar la lista. Recarga la página.</p>';
-      els.instList.hidden = false;
       console.error(err);
     }
   }
@@ -180,7 +222,6 @@
     const total = state.institutions.length;
     const chip = document.querySelector('.count-chip[data-count="all"]');
     if (chip) chip.textContent = `Todas (${total})`;
-    // Also hide chips for N > total
     document.querySelectorAll('.count-chip[data-count]').forEach((c) => {
       const n = Number(c.dataset.count);
       if (!isNaN(n)) c.hidden = n > total;
@@ -191,21 +232,18 @@
     state.countMode = mode;
     const total = state.institutions.length;
 
-    // Select top-N or all
     state.selected.clear();
     const limit = (mode === 'all') ? total : Math.min(Number(mode), total);
     state.institutions.slice(0, limit).forEach((i) => state.selected.add(i.nombre));
 
-    // Update chip active state
     document.querySelectorAll('.count-chip').forEach((c) => {
       const isActive = String(c.dataset.count) === String(mode);
       c.classList.toggle('active', isActive);
       c.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
 
-    // Update hint
     if (mode === 'all') {
-      els.countHint.textContent = `Incluye las ${total} instituciones disponibles.`;
+      els.countHint.textContent = `Incluye todas las instituciones disponibles.`;
     } else {
       const n = Math.min(Number(mode), total);
       els.countHint.textContent = n === 1
@@ -213,8 +251,7 @@
         : `Las ${n} instituciones con mayor tasa.`;
     }
 
-    // Re-render list if expanded
-    if (!els.instList.hidden) renderInstList();
+    renderInstList();
     updateCondSummary();
     updateStep2Cta();
   }
@@ -224,17 +261,6 @@
     if (!chip) return;
     const mode = chip.dataset.count === 'all' ? 'all' : Number(chip.dataset.count);
     applyCountMode(mode);
-  });
-
-  // Expand/collapse institution list
-  els.instToggle.addEventListener('click', () => {
-    const expanded = els.instToggle.getAttribute('aria-expanded') === 'true';
-    els.instToggle.setAttribute('aria-expanded', !expanded);
-    els.instList.hidden = expanded;
-    if (!expanded) renderInstList();
-    els.instToggleLabel.textContent = expanded
-      ? 'Ver y ajustar instituciones'
-      : 'Ocultar lista';
   });
 
   function tagFor(tipo) {
@@ -280,7 +306,7 @@
         card.setAttribute('aria-checked', state.selected.has(name));
         updateCondSummary();
         updateStep2Cta();
-        // Sync count chips to 'custom' — deactivate all chips
+        // Custom selection: deactivate preset chips
         document.querySelectorAll('.count-chip').forEach((c) => {
           c.classList.remove('active');
           c.setAttribute('aria-pressed', 'false');
@@ -300,9 +326,8 @@
       .map((i) => i.nombre);
 
     if (withCond.length) {
-      const list = withCond.join(', ');
       els.condSummaryBody.textContent =
-        `${list} — revisa sus requisitos en la lista de arriba antes de calcular.`;
+        `${withCond.join(', ')} — revisa sus requisitos en la lista de arriba antes de calcular.`;
       els.condSummary.hidden = false;
     } else {
       els.condSummary.hidden = true;
@@ -313,10 +338,8 @@
     els.step2Calc.disabled = state.selected.size === 0;
   }
 
-  // Step 2 back
   els.step2Back.addEventListener('click', () => goTo(1));
 
-  // Step 2 calc → go to step 3 and run optimizer
   els.step2Calc.addEventListener('click', () => {
     goTo(3);
     calculate();
@@ -325,26 +348,29 @@
   // ── Step 3 — Calculation + Results ───────────────────────────────────────
 
   function showLoading() {
-    els.resLoading.hidden  = false;
-    els.resError.hidden    = true;
-    els.resContent.hidden  = true;
-    els.resFooter.hidden   = true;
+    els.resLoading.hidden    = false;
+    els.resError.hidden      = true;
+    els.resContent31.hidden  = true;
+    els.resContent32.hidden  = true;
+    els.resFooter31.hidden   = true;
+    els.resFooter32.hidden   = true;
   }
 
   function showError(msg) {
-    els.resLoading.hidden  = true;
-    els.resError.hidden    = false;
+    els.resLoading.hidden    = true;
+    els.resError.hidden      = false;
     els.resErrorMsg.textContent = msg;
-    els.resContent.hidden  = true;
-    els.resFooter.hidden   = false; // back buttons let the user adjust and retry
+    els.resContent31.hidden  = true;
+    els.resContent32.hidden  = true;
+    els.resFooter31.hidden   = false; // back buttons let the user adjust and retry
+    els.resFooter32.hidden   = true;
     gtag_event('plan_error');
   }
 
   function showResults() {
     els.resLoading.hidden = true;
     els.resError.hidden   = true;
-    els.resContent.hidden = false;
-    els.resFooter.hidden  = false;
+    goToSub3(1); // always start at veredicto
   }
 
   async function calculate() {
@@ -356,7 +382,6 @@
       return;
     }
 
-    // Spinner on CTA while loading
     els.step2Calc.classList.add('is-loading');
 
     try {
@@ -395,15 +420,16 @@
       return;
     }
 
-    // Headline rate
+    const asig = data.asignaciones || [];
+
+    // ── 3.1 veredicto ───────────────────────────────────────────────────────
+
     els.rRate.textContent = fmtPct(data.tasa_efectiva);
     els.rTotal.textContent = fmtMXN(total);
     els.rSubtitle.innerHTML = `Invirtiendo <strong>${fmtMXN(total)}</strong> según este plan.`;
 
-    // Animated metric
     animateNumber(els.rReturn, 0, data.rendimiento_esperado, fmtMXNUnit);
 
-    // Delta vs CETES
     if (data.comparativa && data.comparativa.delta > 0) {
       els.rCetesRate.textContent = data.comparativa.tasa_cetes_label;
       animateNumber(els.rDelta, 0, data.comparativa.delta, (v) => fmtMXN(v));
@@ -412,8 +438,6 @@
       els.deltaV2.hidden = true;
     }
 
-    // Accounts callout
-    const asig = data.asignaciones || [];
     if (asig.length) {
       const n = asig.length;
       els.accountsCount.textContent = `${n} cuenta${n !== 1 ? 's' : ''} nueva${n !== 1 ? 's' : ''}`;
@@ -423,25 +447,26 @@
       els.accountsCallout.hidden = true;
     }
 
-    // Chart
+    // ── 3.2 distribución ────────────────────────────────────────────────────
+
+    els.rSubtitle32.innerHTML = `${escapeHtml(fmtPct(data.tasa_efectiva))} · ${escapeHtml(fmtMXN(total))}`;
+
     if (data.chart_data && asig.length > 0) {
+      state.pendingChartData = data.chart_data;
       els.chartWrap.hidden = false;
-      renderChart(data.chart_data);
     } else {
+      state.pendingChartData = null;
       els.chartWrap.hidden = true;
     }
 
-    // Plan cards
     renderPlanCards(asig);
+
+    // Show affiliate disclosure if any card has a link
+    const hasAffiliate = asig.some((a) => AFFILIATE[a.institucion]);
+    if (els.affiliateDisc) els.affiliateDisc.hidden = !hasAffiliate;
 
     gtag_event('plan_calculated', { instituciones: asig.length });
     showResults();
-
-    // Scroll results to top after paint
-    requestAnimationFrame(() => {
-      const inner = document.querySelector('#wiz-panel-3 .wiz-panel-inner');
-      if (inner) inner.scrollTop = 0;
-    });
   }
 
   function renderPlanCards(asignaciones) {
@@ -475,12 +500,17 @@
         ? `<p class="count-hint" style="margin-bottom:.25rem">La institución distribuye tu depósito entre sus tramos automáticamente:</p>`
         : '';
 
-      const affiliateCta = AFFILIATE[a.institucion] ? `
+      const affiliateUrl = AFFILIATE[a.institucion];
+      const affiliateCta = affiliateUrl ? `
         <div class="plan-affiliate-v2">
-          <a href="${escapeAttr(AFFILIATE[a.institucion])}" target="_blank" rel="noopener sponsored">
+          <a href="${escapeAttr(affiliateUrl)}"
+             target="_blank"
+             rel="noopener sponsored"
+             data-inst="${escapeAttr(a.institucion)}"
+             class="plan-affiliate-link">
             Abrir cuenta en ${escapeHtml(a.institucion)} →
           </a>
-          <span class="plan-affiliate-disc">(enlace de afiliado)</span>
+          <span class="plan-affiliate-disc">*enlace de afiliado</span>
         </div>
       ` : '';
 
@@ -508,6 +538,13 @@
         </article>
       `;
     }).join('');
+
+    // GA4: track affiliate link clicks
+    els.planCards.querySelectorAll('.plan-affiliate-link').forEach((link) => {
+      link.addEventListener('click', () => {
+        gtag_event('affiliate_click', { institution: link.dataset.inst });
+      });
+    });
   }
 
   function renderChart(chartData) {
@@ -568,10 +605,22 @@
     requestAnimationFrame(step);
   }
 
-  // Back buttons in step 3
-  els.step3BackAmount.addEventListener('click', () => goTo(1));
+  // ── Step 3 navigation ─────────────────────────────────────────────────────
+
   els.step3BackInst.addEventListener('click', () => goTo(2));
+  els.step3Next32.addEventListener('click', () => goToSub3(2));
+  els.step3Back31.addEventListener('click', () => goToSub3(1));
+  els.step3BackAmount.addEventListener('click', () => goTo(1));
   els.resRetry.addEventListener('click', () => goTo(2));
+
+  els.wizRestart.addEventListener('click', () => {
+    // Reset state
+    state.sub3 = 1;
+    applyCountMode('all');
+    els.amountInput.value = fmtNumber(Number(els.slider.value));
+    gtag_event('wizard_restart');
+    goTo(1);
+  });
 
   // ── Init ──────────────────────────────────────────────────────────────────
 

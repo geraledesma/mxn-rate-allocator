@@ -5,7 +5,7 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-<link rel="stylesheet" href="/static/style_v2.css">
+<link rel="stylesheet" href="/static/style_v2.css?v=2">
 {% endblock %}
 
 {% block content %}
@@ -75,51 +75,40 @@
 
         <div class="wiz-footer">
           <button type="button" class="wiz-cta" id="step1-next">
-            <span class="cta-text">Elegir instituciones →</span>
+            <span class="cta-text">Continuar →</span>
           </button>
         </div>
       </section>
 
       <!-- ══ PASO 2 — Instituciones ═════════════════════════════════════ -->
       <section class="wiz-panel" id="wiz-panel-2" data-state="after"
-               aria-label="Paso 2: ¿En cuántas cuentas?">
+               aria-label="Paso 2: ¿En cuáles cuentas?">
         <div class="wiz-panel-inner">
 
           <header class="wiz-header">
             <p class="wiz-eyebrow">Paso 2 de 3</p>
-            <h2 class="wiz-title">¿En cuántas cuentas?</h2>
-            <p class="wiz-sub">Más cuentas = mayor rendimiento; menos cuentas = más simple. Tú decides cuántas quieres abrir.</p>
+            <h2 class="wiz-title">¿En cuáles cuentas?</h2>
+            <p class="wiz-sub">Selecciona las instituciones que quieras considerar. Empieza con todas y descarta las que no te convengan.</p>
           </header>
 
-          <!-- Count quick-selector -->
-          <div class="count-section">
-            <p class="count-label">Número de instituciones</p>
-            <div class="count-chips" id="count-chips" role="group" aria-label="Selecciona cuántas instituciones incluir">
-              <button type="button" class="count-chip" data-count="1">1</button>
-              <button type="button" class="count-chip" data-count="2">2</button>
-              <button type="button" class="count-chip active" data-count="3" aria-pressed="true">3</button>
-              <button type="button" class="count-chip" data-count="4">4</button>
-              <button type="button" class="count-chip" data-count="5">5</button>
-              <button type="button" class="count-chip" data-count="all" id="chip-all">Todas</button>
-            </div>
-            <p class="count-hint" id="count-hint">Seleccionará las 3 instituciones con mayor tasa.</p>
-          </div>
-
-          <!-- Expandable institution list -->
+          <!-- Institution list — always visible, which-first -->
           <div class="inst-section">
-            <button
-              type="button"
-              class="inst-toggle"
-              id="inst-toggle"
-              aria-expanded="false"
-              aria-controls="inst-list-v2"
-            >
-              <span id="inst-toggle-label">Ver y ajustar instituciones</span>
-              <span class="inst-toggle-arrow" aria-hidden="true">▾</span>
-            </button>
-            <div class="inst-list-v2" id="inst-list-v2" hidden>
+            <div class="inst-list-v2" id="inst-list-v2">
               <p class="count-hint" style="padding: 0.25rem 0.25rem 0;">Cargando…</p>
             </div>
+          </div>
+
+          <!-- Quick preset selector (secondary control) -->
+          <div class="count-section">
+            <p class="count-label">Selección rápida</p>
+            <div class="count-chips" id="count-chips" role="group" aria-label="Presets de selección">
+              <button type="button" class="count-chip" data-count="1">Top 1</button>
+              <button type="button" class="count-chip" data-count="2">Top 2</button>
+              <button type="button" class="count-chip" data-count="3">Top 3</button>
+              <button type="button" class="count-chip" data-count="5">Top 5</button>
+              <button type="button" class="count-chip active" data-count="all" id="chip-all" aria-pressed="true">Todas</button>
+            </div>
+            <p class="count-hint" id="count-hint">Incluye todas las instituciones disponibles.</p>
           </div>
 
           <!-- Condition summary (shown only when selected institutions have conditions) -->
@@ -161,11 +150,11 @@
             <button type="button" class="wiz-back" id="res-retry" style="margin-top:.5rem">← Ajustar y recalcular</button>
           </div>
 
-          <!-- Results content -->
-          <div id="res-content" hidden>
+          <!-- 3.1 — Veredicto -->
+          <div id="res-content-31" hidden>
 
             <header class="wiz-header">
-              <p class="wiz-eyebrow is-green">Paso 3 de 3 · Tu plan</p>
+              <p class="wiz-eyebrow is-green">Paso 3 de 3 · ¿Cuánto ganarías?</p>
               <h2 class="wiz-title">
                 Ganarías <span id="r-rate" class="results-rate-hl">—</span> anual
               </h2>
@@ -189,7 +178,7 @@
               </p>
             </div>
 
-            <!-- Accounts callout — key UX improvement -->
+            <!-- Accounts callout -->
             <div class="accounts-callout" id="accounts-callout" hidden>
               <div class="accounts-icon" aria-hidden="true">🏦</div>
               <div>
@@ -197,6 +186,16 @@
                 <p class="accounts-names" id="accounts-names"></p>
               </div>
             </div>
+
+          </div>
+
+          <!-- 3.2 — Distribución -->
+          <div id="res-content-32" hidden>
+
+            <header class="wiz-header">
+              <p class="wiz-eyebrow is-green">Paso 3 de 3 · ¿Cómo lo distribuyo?</p>
+              <h2 class="wiz-title-sm" id="r-subtitle-32"></h2>
+            </header>
 
             <!-- Bar chart -->
             <div class="chart-wrap-v2" id="chart-wrap" hidden>
@@ -211,13 +210,32 @@
             <!-- Plan cards -->
             <div class="plan-cards-v2" id="plan-cards"></div>
 
+            <!-- Affiliate disclosure -->
+            <p class="affiliate-disc-global" id="affiliate-disc" hidden>
+              * Los enlaces marcados como "Abrir cuenta" son enlaces de afiliado. Merqurio puede recibir una comisión si abres una cuenta a través de ellos, sin costo adicional para ti. Las tasas mostradas no dependen de estos enlaces.
+            </p>
+
+            <!-- Restart -->
+            <button type="button" class="wiz-restart" id="wiz-restart">
+              Empezar de nuevo
+            </button>
+
           </div>
+
         </div>
 
-        <!-- Footer with back actions — shown after results load -->
-        <div class="wiz-footer wiz-footer-split" id="res-footer" hidden>
-          <button type="button" class="wiz-back" id="step3-back-amount">← Cambiar monto</button>
+        <!-- Footer 3.1: back to instituciones | ver distribución -->
+        <div class="wiz-footer wiz-footer-2col" id="res-footer-31" hidden>
           <button type="button" class="wiz-back" id="step3-back-inst">← Cambiar instituciones</button>
+          <button type="button" class="wiz-cta" id="step3-next-32">
+            <span class="cta-text">Ver cómo repartirlo →</span>
+          </button>
+        </div>
+
+        <!-- Footer 3.2: volver al veredicto | cambiar monto -->
+        <div class="wiz-footer wiz-footer-split" id="res-footer-32" hidden>
+          <button type="button" class="wiz-back" id="step3-back-31">← Volver</button>
+          <button type="button" class="wiz-back" id="step3-back-amount">← Cambiar monto</button>
         </div>
       </section>
 
@@ -227,5 +245,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="/static/calc_v2.js" defer></script>
+<script src="/static/calc_v2.js?v=4" defer></script>
 {% endblock %}
