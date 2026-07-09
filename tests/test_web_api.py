@@ -208,10 +208,11 @@ def test_infeasible_returns_422_not_500():
     if not sofipo_names:
         pytest.skip("no SOFIPO institutions in dataset")
 
-    # Combined Prosofipo cap = n_sofipo × 208K; use 1.5M which exceeds any realistic dataset
+    # Use TOTAL_MAX — guaranteed to exceed any realistic combined Prosofipo cap
+    # (would need 47+ SOFIPO institutions at 208K each to reach 9.9M)
     resp = client.post(
         "/api/allocate",
-        json={"total": 1_500_000, "instituciones_habilitadas": sofipo_names},
+        json={"total": TOTAL_MAX, "instituciones_habilitadas": sofipo_names},
     )
     assert resp.status_code == 422
     assert resp.status_code != 500

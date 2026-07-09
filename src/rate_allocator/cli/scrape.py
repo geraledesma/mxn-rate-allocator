@@ -39,17 +39,9 @@ TIER_STRUCTURES: dict[str, dict] = {
             {"limit": "inf",  "rate": 0.075},
         ],
     },
-    # source: https://www.revolut.com/es-MX/instant-access-savings/
-    # Product: Rendimientos Diarios — a la vista, 24/7, no lock-up.
-    # Rates: first $25k at vista rate; $25k-$1M and $1M+ are hardcoded from T&C Apr 2026.
-    "Revolut": {
-        "institution_type": "banco",
-        "tiers": [
-            {"limit": 25_000,    "rate_key": "vista"},
-            {"limit": 1_000_000, "rate": 0.075},
-            {"limit": "inf",     "rate": 0.05},
-        ],
-    },
+    # Revolut removed from auto-scrape — tasas.mx shows only Metal rate (15%) without
+    # distinguishing Standard/Premium/Metal plans. Now manually curated in
+    # data/manual_additions.yaml with plan separation. Update when T&C confirmed.
     # source: https://cdn.nubank.com.br/MX/folleto-informativo-cuenta.pdf
     # Product: Cajita Turbo (a la vista) — requires ≥1 purchase per 30 days on Nu card.
     # Over $25k: 24/7 Cajita at ~6.75%, no conditions.
@@ -105,16 +97,10 @@ TIER_STRUCTURES: dict[str, dict] = {
             {"limit": "inf",     "rate": 0.07},
         ],
     },
-    # source: https://www.klar.mx/inversion (Fondo de Rendimiento Klar, flexible)
-    # Product: Flexible investment (on-demand, no lock-up, no early-withdrawal penalty).
-    # NOTE: 8.5% is for Klar Plus/Platino tier. Light tier earns less (~3-6%).
-    # tasas.mx shows "vista" = 8.5% which corresponds to the flexible/on-demand tier.
-    "Klar": {
-        "institution_type": "sofipo",
-        "tiers": [
-            {"limit": "inf", "rate_key": "vista"},
-        ],
-    },
+    # Klar removed from auto-scrape — tasas.mx shows only the Plus/Platino rate (8.5%),
+    # which can't be decomposed into plan-level rates (Light 3%, Plus 5%) from this source.
+    # Klar is manually curated in data/manual_additions.yaml with plan separation.
+    # Update when scraper2 (deceroalinfinito.com) is built.
     # source: https://crediclub.com.mx (supertasas.com redirects here)
     # Product: Cuenta de Ahorro a la Vista — Crediclub SFP. Only "vista" rate is in scope.
     # NOTA: Crediclub también ofrece plazos (7-364 días) con tasas más altas — EXCLUIDOS.

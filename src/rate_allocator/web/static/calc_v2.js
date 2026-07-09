@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  // Provisional affiliate links — replace with real referral URLs once registered.
+  // Affiliate links keyed by institution name (not plan display name).
   const AFFILIATE = {
     'DiDi':         'https://moneydidi.mx/ahorra/',
     'Revolut':      'https://www.revolut.com/es-MX/',
@@ -11,8 +11,7 @@
     'Mercado Pago': 'https://www.mercadopago.com.mx/cuenta-de-ahorro',
     'Klar':         'https://www.klar.mx/',
     'Uala':         'https://www.uala.com.mx/',
-    'Plata · Ahorro Flexible': 'https://www.platacard.mx/',
-    'Plata · Ahorro Plata+':  'https://www.platacard.mx/',
+    'Plata':        'https://www.platacard.mx/',
     'Stori':        'https://www.storicard.com/',
     'Mifel':        'https://www.mifel.com.mx/',
     'BONDDIA':      'https://www.gbmhomebroker.com/bonddia',
@@ -76,8 +75,8 @@
 
   const state = {
     currentStep: 1,
-    institutions: [],
-    selected: new Set(),
+    institutions: [],   // raw v2 Institution objects (with .planes array)
+    selected: new Set(), // compound keys: "Klar::light", "Plata::plus", "Uala::base"
     countMode: 'all',
     chart: null,
     pendingChartData: null,
@@ -125,7 +124,7 @@
       const dot = els.dots[i];
       dot.classList.toggle('is-done',   i < step);
       dot.classList.toggle('is-active', i === step);
-      dot.textContent = String(i); // restore number (overridden in showResults for dot-3)
+      dot.textContent = String(i);
       dot.removeAttribute('aria-current');
       if (i === step) dot.setAttribute('aria-current', 'step');
     }
@@ -175,17 +174,23 @@
 
   updateSliderTrack();
 
-  // ── Step 2 — Institutions (which-first) ──────────────────────────────────
+  // ── Step 2 — Institutions + Plans ────────────────────────────────────────
+
+  // Compound key for the best plan of an institution
+  function bestPlanKey(inst) {
+    const best = inst.planes.reduce((a, b) => b.tasa_max > a.tasa_max ? b : a);
+    return `${inst.nombre}::${best.plan_key}`;
+  }
 
   async function loadInstitutions() {
     try {
-      const res = await fetch('/instituciones');
+      const res = await fetch('/v2/instituciones');
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       state.institutions = data.instituciones;
       updateChipAll();
       applyCountMode(state.countMode);
-      renderInstList(); // list always visible
+      renderInstList();
     } catch (err) {
       els.instList.innerHTML = '<p class="count-hint" style="color:var(--warning);padding:.25rem">No se pudo cargar la lista. Recarga la página.</p>';
       console.error(err);
@@ -202,13 +207,16 @@
     });
   }
 
+  // Select the best plan of the top N institutions (by best plan rate).
   function applyCountMode(mode) {
     state.countMode = mode;
     const total = state.institutions.length;
 
     state.selected.clear();
     const limit = (mode === 'all') ? total : Math.min(Number(mode), total);
-    state.institutions.slice(0, limit).forEach((i) => state.selected.add(i.nombre));
+    state.institutions.slice(0, limit).forEach((inst) => {
+      state.selected.add(bestPlanKey(inst));
+    });
 
     document.querySelectorAll('.count-chip').forEach((c) => {
       const isActive = String(c.dataset.count) === String(mode);
@@ -243,64 +251,165 @@
     return '<span class="tag">Fintech</span>';
   }
 
+  // Toggle a plan within a group: radio-button behavior — selecting a plan
+  // deselects any other plan from the same institution.
+  function togglePlan(instNombre, planKey) {
+    const ck = `${instNombre}::${planKey}`;
+    if (state.selected.has(ck)) {
+      state.selected.delete(ck);
+    } else {
+      // Deselect all other plans of the same institution
+      for (const existing of Array.from(state.selected)) {
+        if (existing.startsWith(`${instNombre}::`)) state.selected.delete(existing);
+      }
+      state.selected.add(ck);
+    }
+  }
+
   function renderInstList() {
     if (!state.institutions.length) return;
 
     els.instList.innerHTML = state.institutions.map((inst) => {
-      const active = state.selected.has(inst.nombre);
-      const condClass = inst.tiene_condicion ? 'inst-cond-warn' : 'inst-cond-ok';
-      const condIcon  = inst.tiene_condicion ? '⚠️ Requisito:' : '✓';
-      return `
-        <div class="inst-card-v2 ${active ? 'is-active' : ''}"
-             data-name="${escapeAttr(inst.nombre)}"
-             role="checkbox"
-             aria-checked="${active}"
-             tabindex="0">
-          <div class="inst-check-v2" aria-hidden="true"></div>
-          <div class="inst-card-body">
-            <div class="inst-row-v2">
-              <span class="inst-name-v2">${escapeHtml(inst.nombre)}</span>
-              ${tagFor(inst.tipo)}
-              <div class="inst-rate-group">
-                <span class="inst-rate-v2">${escapeHtml(inst.tasa_max_label)}</span>
-                ${inst.tasa_max_limite_label ? `<span class="inst-rate-limit">${escapeHtml(inst.tasa_max_limite_label)}</span>` : ''}
+      const isMultiPlan = inst.planes.length > 1;
+
+      if (!isMultiPlan) {
+        // Single-plan institution: flat card, same look as before
+        const plan = inst.planes[0];
+        const ck = `${inst.nombre}::${plan.plan_key}`;
+        const active = state.selected.has(ck);
+        const condClass = plan.tiene_condicion ? 'inst-cond-warn' : 'inst-cond-ok';
+        const condIcon  = plan.tiene_condicion ? '⚠️ Requisito:' : '✓';
+        return `
+          <div class="inst-card-v2 ${active ? 'is-active' : ''}"
+               data-key="${escapeAttr(ck)}"
+               data-group="${escapeAttr(inst.nombre)}"
+               role="checkbox"
+               aria-checked="${active}"
+               tabindex="0">
+            <div class="inst-check-v2" aria-hidden="true"></div>
+            <div class="inst-card-body">
+              <div class="inst-row-v2">
+                <span class="inst-name-v2">${escapeHtml(inst.nombre)}</span>
+                ${tagFor(inst.tipo)}
+                <div class="inst-rate-group">
+                  <span class="inst-rate-v2">${escapeHtml(plan.tasa_max_label)}</span>
+                  ${plan.tasa_max_limite_label ? `<span class="inst-rate-limit">${escapeHtml(plan.tasa_max_limite_label)}</span>` : ''}
+                </div>
+              </div>
+              <div class="inst-cond-block">
+                <span class="${condClass}">${condIcon} ${escapeHtml(plan.condicion)}</span>
               </div>
             </div>
-            <div class="inst-cond-block">
-              <span class="${condClass}">${condIcon} ${escapeHtml(inst.condicion)}</span>
+          </div>
+        `;
+      }
+
+      // Multi-plan institution: group card with nested plan options
+      const plansHtml = inst.planes.map((plan) => {
+        const ck = `${inst.nombre}::${plan.plan_key}`;
+        const active = state.selected.has(ck);
+        const condClass = plan.tiene_condicion ? 'plan-opt-cond-warn' : 'plan-opt-cond-ok';
+        const condIcon  = plan.tiene_condicion ? '⚠️' : '✓';
+        const costLabel = plan.costo_mensual > 0 ? ` · $${Math.round(plan.costo_mensual)}/mes` : '';
+        return `
+          <div class="plan-opt-v2 ${active ? 'is-active' : ''}"
+               data-key="${escapeAttr(ck)}"
+               data-group="${escapeAttr(inst.nombre)}"
+               role="radio"
+               aria-checked="${active}"
+               tabindex="0">
+            <div class="plan-check-v2" aria-hidden="true"></div>
+            <div class="plan-opt-body-v2">
+              <div class="plan-opt-row-v2">
+                <span class="plan-opt-name-v2">${escapeHtml(plan.display_name)}</span>
+                <span class="plan-opt-rate-v2">${escapeHtml(plan.tasa_max_label)}</span>
+              </div>
+              <div class="plan-opt-cond-v2">
+                <span class="${condClass}">${condIcon} ${escapeHtml(plan.condicion)}${escapeHtml(costLabel)}</span>
+              </div>
             </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="inst-group-v2">
+          <div class="inst-group-header-v2">
+            <span class="inst-name-v2">${escapeHtml(inst.nombre)}</span>
+            ${tagFor(inst.tipo)}
+            <span class="inst-coverage-v2">${escapeHtml(inst.cobertura_label)}</span>
+          </div>
+          <div class="inst-plans-v2" role="radiogroup" aria-label="${escapeAttr(inst.nombre)} — elige plan">
+            ${plansHtml}
           </div>
         </div>
       `;
     }).join('');
 
-    els.instList.querySelectorAll('.inst-card-v2').forEach((card) => {
+    // Wire up single-plan cards (checkbox behavior)
+    els.instList.querySelectorAll('.inst-card-v2[data-key]').forEach((card) => {
       const toggle = () => {
-        const name = card.dataset.name;
-        if (state.selected.has(name)) state.selected.delete(name);
-        else state.selected.add(name);
-        card.classList.toggle('is-active', state.selected.has(name));
-        card.setAttribute('aria-checked', state.selected.has(name));
+        const ck = card.dataset.key;
+        const group = card.dataset.group;
+        if (state.selected.has(ck)) state.selected.delete(ck);
+        else state.selected.add(ck);
+        card.classList.toggle('is-active', state.selected.has(ck));
+        card.setAttribute('aria-checked', state.selected.has(ck));
         updateCondSummary();
         updateStep2Cta();
-        // Custom selection: deactivate preset chips
-        document.querySelectorAll('.count-chip').forEach((c) => {
-          c.classList.remove('active');
-          c.setAttribute('aria-pressed', 'false');
-        });
-        els.countHint.textContent = `${state.selected.size} institución${state.selected.size !== 1 ? 'es' : ''} seleccionada${state.selected.size !== 1 ? 's' : ''}.`;
+        clearChipSelection();
       };
       card.addEventListener('click', toggle);
       card.addEventListener('keydown', (e) => {
         if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); }
       });
     });
+
+    // Wire up multi-plan options (radio behavior within group)
+    els.instList.querySelectorAll('.plan-opt-v2').forEach((opt) => {
+      const toggle = () => {
+        const ck   = opt.dataset.key;
+        const group = opt.dataset.group;
+        const [instNombre, planKey] = ck.split('::');
+
+        togglePlan(instNombre, planKey);
+
+        // Update all options in the same group
+        els.instList.querySelectorAll(`.plan-opt-v2[data-group="${CSS.escape(group)}"]`).forEach((o) => {
+          const active = state.selected.has(o.dataset.key);
+          o.classList.toggle('is-active', active);
+          o.setAttribute('aria-checked', active);
+        });
+
+        updateCondSummary();
+        updateStep2Cta();
+        clearChipSelection();
+      };
+      opt.addEventListener('click', toggle);
+      opt.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); }
+      });
+    });
+  }
+
+  function clearChipSelection() {
+    document.querySelectorAll('.count-chip').forEach((c) => {
+      c.classList.remove('active');
+      c.setAttribute('aria-pressed', 'false');
+    });
+    const n = state.selected.size;
+    els.countHint.textContent = `${n} plan${n !== 1 ? 'es' : ''} seleccionado${n !== 1 ? 's' : ''}.`;
   }
 
   function updateCondSummary() {
-    const withCond = state.institutions
-      .filter((i) => state.selected.has(i.nombre) && i.tiene_condicion)
-      .map((i) => i.nombre);
+    const withCond = [];
+    for (const ck of state.selected) {
+      const [instNombre, planKey] = ck.split('::');
+      const inst = state.institutions.find((i) => i.nombre === instNombre);
+      if (!inst) continue;
+      const plan = inst.planes.find((p) => p.plan_key === planKey);
+      if (plan && plan.tiene_condicion) withCond.push(plan.display_name);
+    }
 
     if (withCond.length) {
       els.condSummaryBody.textContent =
@@ -336,7 +445,7 @@
     els.resError.hidden    = false;
     els.resErrorMsg.textContent = msg;
     els.resContent.hidden  = true;
-    els.resFooter.hidden   = false; // back button still usable
+    els.resFooter.hidden   = false;
     gtag_event('plan_error');
   }
 
@@ -346,13 +455,11 @@
     els.resContent.hidden = false;
     els.resFooter.hidden  = false;
 
-    // Render chart now that the container is visible
     if (state.pendingChartData) {
       renderChart(state.pendingChartData);
       state.pendingChartData = null;
     }
 
-    // Dot 3 → completed state (✓)
     els.dots[3].textContent = '✓';
     els.dots[3].classList.add('is-done');
     els.dots[3].classList.remove('is-active');
@@ -372,7 +479,7 @@
     els.step2Calc.classList.add('is-loading');
 
     try {
-      const res = await fetch('/api/allocate', {
+      const res = await fetch('/v2/api/allocate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -409,8 +516,6 @@
 
     const asig = data.asignaciones || [];
 
-    // ── Veredicto ────────────────────────────────────────────────────────────
-
     els.rRate.textContent = fmtPct(data.tasa_efectiva);
     els.rTotal.textContent = fmtMXN(total);
     els.rSubtitle.innerHTML = `Invirtiendo <strong>${fmtMXN(total)}</strong> según este plan.`;
@@ -434,9 +539,6 @@
       els.accountsCallout.hidden = true;
     }
 
-    // ── Distribución ─────────────────────────────────────────────────────────
-
-    // Store chart data — rendered in showResults() once container is visible
     if (data.chart_data && asig.length > 0) {
       state.pendingChartData = data.chart_data;
       els.chartWrap.hidden = false;
@@ -447,7 +549,11 @@
 
     renderPlanCards(asig);
 
-    const hasAffiliate = asig.some((a) => AFFILIATE[a.institucion]);
+    // Affiliate disclosure: check by institution name (from compound_key)
+    const hasAffiliate = asig.some((a) => {
+      const instNombre = a.compound_key ? a.compound_key.split('::')[0] : a.institucion;
+      return !!AFFILIATE[instNombre];
+    });
     if (els.affiliateDisc) els.affiliateDisc.hidden = !hasAffiliate;
 
     gtag_event('plan_calculated', { instituciones: asig.length });
@@ -485,13 +591,14 @@
         ? `<p class="count-hint" style="margin-bottom:.25rem">La institución distribuye tu depósito entre sus tramos automáticamente:</p>`
         : '';
 
-      const affiliateUrl = AFFILIATE[a.institucion];
-      // Action: affiliate link replaces static text when available
+      // Affiliate lookup by institution name (parsed from compound_key)
+      const instNombre = a.compound_key ? a.compound_key.split('::')[0] : a.institucion;
+      const affiliateUrl = AFFILIATE[instNombre];
       const actionLine = affiliateUrl
         ? `<a href="${escapeAttr(affiliateUrl)}"
               target="_blank"
               rel="noopener sponsored"
-              data-inst="${escapeAttr(a.institucion)}"
+              data-inst="${escapeAttr(instNombre)}"
               class="plan-card-action-link">
              Abrir cuenta en ${escapeHtml(a.institucion)} →
            </a>`
@@ -521,7 +628,6 @@
       `;
     }).join('');
 
-    // GA4: track affiliate link clicks
     els.planCards.querySelectorAll('.plan-card-action-link').forEach((link) => {
       link.addEventListener('click', () => {
         gtag_event('affiliate_click', { institution: link.dataset.inst });

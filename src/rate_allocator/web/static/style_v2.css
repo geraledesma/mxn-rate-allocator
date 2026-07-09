@@ -481,6 +481,124 @@
 .cond-summary-title { font-weight: 700; font-size: 0.9rem; color: var(--ink); margin: 0 0 0.2rem; }
 .cond-summary-body  { font-size: 0.8125rem; color: var(--ink-soft); margin: 0; line-height: 1.5; }
 
+/* ── Multi-plan institution group ────────────────────────────────────────────── */
+
+.inst-group-v2 {
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.inst-group-header-v2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem 0.5rem;
+  background: var(--surface-raised, var(--surface));
+  border-bottom: 1px solid var(--line);
+}
+
+.inst-coverage-v2 {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--ink-mute);
+  font-weight: 500;
+}
+
+.inst-plans-v2 {
+  display: flex;
+  flex-direction: column;
+}
+
+.plan-opt-v2 {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background 0.12s;
+  border-bottom: 1px solid var(--line);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.plan-opt-v2:last-child { border-bottom: none; }
+
+.plan-opt-v2:hover { background: var(--primary-bg); }
+
+.plan-opt-v2.is-active { background: var(--primary-bg); }
+
+/* Radio circle */
+.plan-check-v2 {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plan-opt-v2.is-active .plan-check-v2 {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.plan-check-v2::after {
+  content: "";
+  display: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.plan-opt-v2.is-active .plan-check-v2::after { display: block; }
+
+.plan-opt-body-v2 { flex: 1; min-width: 0; }
+
+.plan-opt-row-v2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.15rem;
+}
+
+.plan-opt-name-v2 {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.plan-opt-rate-v2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.plan-opt-cond-v2 {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.plan-opt-cond-ok  { color: var(--primary); }
+.plan-opt-cond-warn {
+  color: var(--warning);
+  font-weight: 500;
+}
+
+.plan-opt-v2:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
 /* ── Buttons ────────────────────────────────────────────────────────────────── */
 
 .wiz-cta {

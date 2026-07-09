@@ -5,13 +5,15 @@ from rate_allocator.domain.models import (
     Constraint,
     Institution,
     InstitutionType,
+    Plan,
     Tier,
 )
 
 __all__ = [
-    "InstitutionType",
-    "Constraint",
-    "Tier",
-    "Institution",
     "AllocationResult",
+    "Constraint",
+    "Institution",
+    "InstitutionType",
+    "Plan",
+    "Tier",
 ]

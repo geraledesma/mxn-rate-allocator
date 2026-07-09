@@ -8,6 +8,7 @@ institutions:
         rate: 0.0655
   - name: Nu
     institution_type: sofipo
+    protection_limit: 200_000
     tiers:
       - limit: 25_000
         rate: 0.13
@@ -21,6 +22,7 @@ institutions:
         rate: 0.0675
   - name: OpenBank
     institution_type: banco
+    protection_limit: 3_200_000
     tiers:
       - limit: 40_000
         rate: 0.13

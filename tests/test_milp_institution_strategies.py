@@ -15,6 +15,7 @@ from rate_allocator.core.optimizer.solve import (
     _run_milp_dense,
     _solve_milp_single_penalty,
 )
+from tests.conftest import mk_inst
 
 
 def _count_institutions_used(
@@ -59,10 +60,7 @@ def test_indicator_penalty_tiny_relative_to_primary_coefficients():
 
 def test_symmetric_institutions_minimize_open_count():
     institutions = [
-        Institution(
-            name=f"B{i}",
-            tiers=(Tier(limit=float("inf"), rate=0.11),),
-        )
+        mk_inst(f"B{i}", (Tier(limit=float("inf"), rate=0.11),))
         for i in range(4)
     ]
     total = 75_000.0
@@ -89,10 +87,7 @@ def test_penalty_matches_phase1_primary_on_representative_cases():
         (
             "identical_three",
             [
-                Institution(
-                    name=f"B{i}",
-                    tiers=(Tier(limit=float("inf"), rate=0.11),),
-                )
+                mk_inst(f"B{i}", (Tier(limit=float("inf"), rate=0.11),))
                 for i in range(3)
             ],
             50_000.0,
@@ -100,16 +95,16 @@ def test_penalty_matches_phase1_primary_on_representative_cases():
         (
             "asymmetric_sample",
             [
-                Institution(
-                    name="Nu",
+                mk_inst(
+                    "Nu",
                     tiers=(
                         Tier(limit=25_000, rate=0.15),
                         Tier(limit=250_000, rate=0.12),
                         Tier(limit=float("inf"), rate=0.10),
                     ),
                 ),
-                Institution(
-                    name="Mercado Pago",
+                mk_inst(
+                    "Mercado Pago",
                     tiers=(
                         Tier(limit=23_000, rate=0.14),
                         Tier(limit=float("inf"), rate=0.10),
@@ -121,14 +116,8 @@ def test_penalty_matches_phase1_primary_on_representative_cases():
         (
             "near_tie_rates",
             [
-                Institution(
-                    name="A",
-                    tiers=(Tier(limit=float("inf"), rate=0.1000001),),
-                ),
-                Institution(
-                    name="B",
-                    tiers=(Tier(limit=float("inf"), rate=0.1000000),),
-                ),
+                mk_inst("A", (Tier(limit=float("inf"), rate=0.1000001),)),
+                mk_inst("B", (Tier(limit=float("inf"), rate=0.1000000),)),
             ],
             10_000.0,
         ),
@@ -160,17 +149,14 @@ def test_penalty_matches_phase1_primary_on_representative_cases():
 def test_large_penalty_can_sacrifice_primary():
     """If δ is too large, the solver may trade return for fewer accounts (documented pitfall)."""
     institutions = [
-        Institution(
-            name="High",
+        mk_inst(
+            "High",
             tiers=(
                 Tier(limit=5_000, rate=0.20),
                 Tier(limit=float("inf"), rate=0.05),
             ),
         ),
-        Institution(
-            name="Flat",
-            tiers=(Tier(limit=float("inf"), rate=0.12),),
-        ),
+        mk_inst("Flat", (Tier(limit=float("inf"), rate=0.12),)),
     ]
     total = 8_000.0
     rules = RegulatoryRules()

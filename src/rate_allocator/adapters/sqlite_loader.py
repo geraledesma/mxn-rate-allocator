@@ -7,7 +7,7 @@ from pathlib import Path
 
 import yaml
 
-from rate_allocator.domain.models import Constraint, Institution, Tier
+from rate_allocator.domain.models import Constraint, Institution, Plan, Tier
 
 
 def ensure_rates_schema(conn: sqlite3.Connection) -> None:
@@ -266,10 +266,16 @@ def load_institutions_from_sqlite(
                 else None
             )
 
+            plan = Plan(
+                plan_key="base",
+                display_name=name,
+                monthly_cost=0.0,
+                tiers=tuple(tiers),
+            )
             institutions.append(
                 Institution(
                     name=name,
-                    tiers=tuple(tiers),
+                    plans=(plan,),
                     institution_type=row["institution_type"],  # type: ignore[arg-type]
                     protection_limit=protection_limit,
                 )

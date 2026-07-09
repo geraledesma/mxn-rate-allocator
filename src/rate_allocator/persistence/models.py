@@ -9,6 +9,13 @@ all touched versions reference, so the whole change is atomic and auditable.
 The schema is portable across SQLite and PostgreSQL. Partial unique indexes
 ("only one current row per natural key") are expressed with the SQL
 ``WHERE effective_to IS NULL`` clause, which both engines support.
+
+Hierarchy: InstitutionVersion → PlanVersion → TierVersion → ConstraintVersion
+Natural keys:
+  institutions_v:  (business_key)
+  plans_v:         (institution_business_key, plan_key)
+  tiers_v:         (institution_business_key, plan_key, tier_index)
+  constraints_v:   (institution_business_key, plan_key, tier_index, constraint_position)
 """
 
 from __future__ import annotations
@@ -101,13 +108,60 @@ class InstitutionVersion(Base):
     )
 
 
-class TierVersion(Base):
-    """SCD2 row for a single rate tier within an institution.
+class PlanVersion(Base):
+    """SCD2 row for a plan (subscription tier) within an institution.
 
-    The natural key is ``(institution_business_key, tier_index)``. Tier order
-    is meaningful in this domain (sequential filling), so the ordinal position
-    is part of identity, not just data. ``limit_mxn = NULL`` represents the
-    open-ended (``inf``) tier; the loader maps it back to ``float("inf")``.
+    Natural key: ``(institution_business_key, plan_key)``.
+    Single-plan institutions use plan_key='base'.
+    """
+
+    __tablename__ = "plans_v"
+
+    plan_row_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    institution_business_key: Mapped[str] = mapped_column(
+        String(255), nullable=False, index=True
+    )
+    plan_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    monthly_cost: Mapped[float] = mapped_column(
+        Numeric(20, 4), nullable=False, default=0.0
+    )
+
+    effective_from: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    effective_to: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    change_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("change_batches.change_id"), nullable=False
+    )
+
+    __table_args__ = (
+        Index(
+            "ux_plans_v_current",
+            "institution_business_key",
+            "plan_key",
+            unique=True,
+            sqlite_where=text("effective_to IS NULL"),
+            postgresql_where=text("effective_to IS NULL"),
+        ),
+        Index(
+            "ix_plans_v_history",
+            "institution_business_key",
+            "plan_key",
+            "effective_from",
+        ),
+    )
+
+
+class TierVersion(Base):
+    """SCD2 row for a single rate tier within a plan.
+
+    Natural key: ``(institution_business_key, plan_key, tier_index)``.
+    ``limit_mxn = NULL`` represents the open-ended (inf) tier.
     """
 
     __tablename__ = "tiers_v"
@@ -118,6 +172,7 @@ class TierVersion(Base):
     institution_business_key: Mapped[str] = mapped_column(
         String(255), nullable=False, index=True
     )
+    plan_key: Mapped[str] = mapped_column(String(64), nullable=False, default="base")
     tier_index: Mapped[int] = mapped_column(Integer, nullable=False)
     limit_mxn: Mapped[Optional[float]] = mapped_column(Numeric(20, 4), nullable=True)
     rate: Mapped[float] = mapped_column(Numeric(10, 8), nullable=False)
@@ -136,6 +191,7 @@ class TierVersion(Base):
         Index(
             "ux_tiers_v_current",
             "institution_business_key",
+            "plan_key",
             "tier_index",
             unique=True,
             sqlite_where=text("effective_to IS NULL"),
@@ -144,6 +200,7 @@ class TierVersion(Base):
         Index(
             "ix_tiers_v_history",
             "institution_business_key",
+            "plan_key",
             "tier_index",
             "effective_from",
         ),
@@ -151,11 +208,9 @@ class TierVersion(Base):
 
 
 class ConstraintVersion(Base):
-    """SCD2 row for a constraint attached to a specific tier.
+    """SCD2 row for a constraint attached to a specific tier within a plan.
 
-    Natural key: ``(institution_business_key, tier_index, constraint_position)``.
-    ``constraint_position`` disambiguates multiple constraints of the same type
-    on the same tier and preserves YAML order.
+    Natural key: ``(institution_business_key, plan_key, tier_index, constraint_position)``.
     """
 
     __tablename__ = "constraints_v"
@@ -166,6 +221,7 @@ class ConstraintVersion(Base):
     institution_business_key: Mapped[str] = mapped_column(
         String(255), nullable=False, index=True
     )
+    plan_key: Mapped[str] = mapped_column(String(64), nullable=False, default="base")
     tier_index: Mapped[int] = mapped_column(Integer, nullable=False)
     constraint_position: Mapped[int] = mapped_column(Integer, nullable=False)
 
@@ -193,6 +249,7 @@ class ConstraintVersion(Base):
         Index(
             "ux_constraints_v_current",
             "institution_business_key",
+            "plan_key",
             "tier_index",
             "constraint_position",
             unique=True,
@@ -202,6 +259,7 @@ class ConstraintVersion(Base):
         Index(
             "ix_constraints_v_history",
             "institution_business_key",
+            "plan_key",
             "tier_index",
             "constraint_position",
             "effective_from",
@@ -210,11 +268,7 @@ class ConstraintVersion(Base):
 
 
 class RegulatoryRulesVersion(Base):
-    """SCD2 row holding the full regulatory-rules payload for one country.
-
-    Rule fields evolve and are interconnected (insurance, tax, exemptions),
-    so we store them as a JSON payload rather than a wide column list.
-    """
+    """SCD2 row holding the full regulatory-rules payload for one country."""
 
     __tablename__ = "regulatory_rules_v"
 
@@ -255,6 +309,7 @@ __all__ = [
     "ChangeBatch",
     "ConstraintVersion",
     "InstitutionVersion",
+    "PlanVersion",
     "RegulatoryRulesVersion",
     "TierVersion",
 ]

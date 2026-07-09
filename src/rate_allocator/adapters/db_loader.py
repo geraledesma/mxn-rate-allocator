@@ -2,9 +2,11 @@
 
 This is the read side of the SCD2 schema. Without ``as_of`` it returns the
 current snapshot (rows where ``effective_to IS NULL``). With ``as_of`` it
-returns the point-in-time snapshot (``effective_from <= as_of <
-effective_to``), which is useful for backtesting historical rate changes
-through the same allocator code.
+returns the point-in-time snapshot, which is useful for backtesting.
+
+Returns ``Institution`` objects with nested ``Plan`` objects.
+The ``Institution.flatten()`` method collapses multi-plan institutions back
+to one Institution per Plan for the v1 API and the optimizer.
 """
 
 from __future__ import annotations
@@ -19,12 +21,14 @@ from rate_allocator.domain.models import (
     Constraint,
     Institution,
     InstitutionType,
+    Plan,
     RegulatoryRules,
     Tier,
 )
 from rate_allocator.persistence.models import (
     ConstraintVersion,
     InstitutionVersion,
+    PlanVersion,
     RegulatoryRulesVersion,
     TierVersion,
 )
@@ -40,14 +44,10 @@ def _current_filter(model_cls, as_of: datetime | None):
 
 
 def _limit_from_db(value) -> float:
-    if value is None:
-        return float("inf")
-    return float(value)
+    return float("inf") if value is None else float(value)
 
 
-def _build_constraints_for_tier(
-    rows: list[ConstraintVersion],
-) -> tuple[Constraint, ...]:
+def _build_constraints_for_tier(rows: list[ConstraintVersion]) -> tuple[Constraint, ...]:
     rows.sort(key=lambda r: r.constraint_position)
     return tuple(
         Constraint(
@@ -68,18 +68,15 @@ def _build_constraints_for_tier(
 def load_institutions_from_db(
     session: Session, *, as_of: datetime | None = None
 ) -> list[Institution]:
-    """Return ``Institution`` dataclasses matching the YAML loader's output.
+    """Return ``Institution`` dataclasses with nested ``Plan`` objects.
 
     Args:
         session: An active SQLAlchemy session bound to a schema-initialized DB.
         as_of: If provided, return the snapshot effective at that timestamp.
-            Defaults to None (current).
     """
     inst_rows = list(
         session.execute(
-            select(InstitutionVersion).where(
-                _current_filter(InstitutionVersion, as_of)
-            )
+            select(InstitutionVersion).where(_current_filter(InstitutionVersion, as_of))
         ).scalars()
     )
     inst_rows.sort(key=lambda r: r.business_key)
@@ -88,6 +85,14 @@ def load_institutions_from_db(
     if not business_keys:
         return []
 
+    plan_rows = list(
+        session.execute(
+            select(PlanVersion).where(
+                PlanVersion.institution_business_key.in_(business_keys),
+                _current_filter(PlanVersion, as_of),
+            )
+        ).scalars()
+    )
     tier_rows = list(
         session.execute(
             select(TierVersion).where(
@@ -105,41 +110,70 @@ def load_institutions_from_db(
         ).scalars()
     )
 
-    tiers_by_inst: dict[str, list[TierVersion]] = {}
-    for row in tier_rows:
-        tiers_by_inst.setdefault(row.institution_business_key, []).append(row)
+    # Index by natural key
+    plans_by_inst: dict[str, list[PlanVersion]] = {}
+    for row in plan_rows:
+        plans_by_inst.setdefault(row.institution_business_key, []).append(row)
 
-    constraints_by_tier: dict[tuple[str, int], list[ConstraintVersion]] = {}
+    tiers_by_plan: dict[tuple[str, str], list[TierVersion]] = {}
+    for row in tier_rows:
+        tiers_by_plan.setdefault(
+            (row.institution_business_key, row.plan_key), []
+        ).append(row)
+
+    constraints_by_tier: dict[tuple[str, str, int], list[ConstraintVersion]] = {}
     for row in constraint_rows:
-        key = (row.institution_business_key, row.tier_index)
+        key = (row.institution_business_key, row.plan_key, row.tier_index)
         constraints_by_tier.setdefault(key, []).append(row)
 
     institutions: list[Institution] = []
     for inst_row in inst_rows:
-        owned_tiers = sorted(
-            tiers_by_inst.get(inst_row.business_key, []),
-            key=lambda t: t.tier_index,
+        owned_plans = sorted(
+            plans_by_inst.get(inst_row.business_key, []),
+            key=lambda p: p.plan_key,
         )
-        if not owned_tiers:
+        if not owned_plans:
             continue
-        tiers = tuple(
-            Tier(
-                limit=_limit_from_db(tier_row.limit_mxn),
-                rate=float(tier_row.rate),
-                constraints=_build_constraints_for_tier(
-                    list(
-                        constraints_by_tier.get(
-                            (inst_row.business_key, tier_row.tier_index), []
-                        )
-                    )
-                ),
+
+        plans: list[Plan] = []
+        for plan_row in owned_plans:
+            owned_tiers = sorted(
+                tiers_by_plan.get((inst_row.business_key, plan_row.plan_key), []),
+                key=lambda t: t.tier_index,
             )
-            for tier_row in owned_tiers
-        )
+            if not owned_tiers:
+                continue
+            tiers = tuple(
+                Tier(
+                    limit=_limit_from_db(tier_row.limit_mxn),
+                    rate=float(tier_row.rate),
+                    constraints=_build_constraints_for_tier(
+                        list(
+                            constraints_by_tier.get(
+                                (inst_row.business_key, plan_row.plan_key, tier_row.tier_index),
+                                [],
+                            )
+                        )
+                    ),
+                )
+                for tier_row in owned_tiers
+            )
+            plans.append(
+                Plan(
+                    plan_key=plan_row.plan_key,
+                    display_name=plan_row.display_name,
+                    monthly_cost=float(plan_row.monthly_cost),
+                    tiers=tiers,
+                )
+            )
+
+        if not plans:
+            continue
+
         institutions.append(
             Institution(
                 name=inst_row.name,
-                tiers=tiers,
+                plans=tuple(plans),
                 institution_type=cast(InstitutionType, inst_row.institution_type),
                 protection_limit=(
                     None
@@ -166,8 +200,7 @@ def load_regulatory_rules_from_db(
     ).scalar_one_or_none()
     if row is None:
         return None
-    payload = dict(row.payload)
-    return RegulatoryRules(**payload)
+    return RegulatoryRules(**dict(row.payload))
 
 
 __all__ = [

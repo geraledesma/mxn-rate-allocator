@@ -12,21 +12,22 @@ from rate_allocator import (
     holding_simple_rate_from_annual,
 )
 from rate_allocator.core.finance.rates import discrete_compounding_accumulation_factor
+from tests.conftest import mk_inst
 
 
 @pytest.fixture
 def sample_institutions():
     return [
-        Institution(
-            name="Nu",
+        mk_inst(
+            "Nu",
             tiers=(
                 Tier(limit=25_000, rate=0.15),
                 Tier(limit=250_000, rate=0.12),
                 Tier(limit=float("inf"), rate=0.10),
             ),
         ),
-        Institution(
-            name="Mercado Pago",
+        mk_inst(
+            "Mercado Pago",
             tiers=(
                 Tier(limit=23_000, rate=0.14),
                 Tier(limit=float("inf"), rate=0.10),
@@ -49,10 +50,7 @@ class TestAllocate:
 
     def test_prefers_single_institution_when_rates_identical(self):
         institutions = [
-            Institution(
-                name=f"S{i}",
-                tiers=(Tier(limit=float("inf"), rate=0.10),),
-            )
+            mk_inst(f"S{i}", (Tier(limit=float("inf"), rate=0.10),))
             for i in range(3)
         ]
         result = allocate(total=40_000, institutions=institutions)
@@ -101,10 +99,7 @@ class TestAllocate:
 
     def test_institution_tier_order(self):
         with pytest.raises(ValueError, match="ascending"):
-            Institution(
-                name="Bad",
-                tiers=(Tier(limit=1000, rate=0.1), Tier(limit=500, rate=0.05)),
-            )
+            mk_inst("Bad", (Tier(limit=1000, rate=0.1), Tier(limit=500, rate=0.05)))
 
     def test_mixed_allocation(self, sample_institutions):
         result = allocate(total=100_000, institutions=sample_institutions)
@@ -116,8 +111,8 @@ class TestAllocate:
 
     def test_fee_constraint_applies_cost_once(self):
         institutions = [
-            Institution(
-                name="FeeBank",
+            mk_inst(
+                "FeeBank",
                 tiers=(
                     Tier(
                         limit=float("inf"),
@@ -195,8 +190,8 @@ class TestAllocate:
 
     def test_constraint_info_tracks_activation(self):
         institutions = [
-            Institution(
-                name="TestBank",
+            mk_inst(
+                "TestBank",
                 tiers=(
                     Tier(
                         limit=float("inf"),
@@ -221,8 +216,8 @@ class TestAllocate:
 
     def test_disclosure_conditions_in_constraint_info(self):
         institutions = [
-            Institution(
-                name="FootnoteBank",
+            mk_inst(
+                "FootnoteBank",
                 tiers=(
                     Tier(
                         limit=float("inf"),
@@ -366,10 +361,7 @@ class TestAllocate:
 
     def test_compound_horizon_expected_return_matches_formula(self):
         institutions = [
-            Institution(
-                name="Solo",
-                tiers=(Tier(limit=float("inf"), rate=0.10),),
-            ),
+            mk_inst("Solo", (Tier(limit=float("inf"), rate=0.10),)),
         ]
         principal = 10_000.0
         result = allocate(
@@ -408,15 +400,15 @@ class TestAllocate:
 
     def test_protection_cap_constraints_limit_institution_allocation(self):
         institutions = [
-            Institution(
-                name="SofipoA",
+            mk_inst(
+                "SofipoA",
+                (Tier(limit=float("inf"), rate=0.13),),
                 institution_type="sofipo",
-                tiers=(Tier(limit=float("inf"), rate=0.13),),
             ),
-            Institution(
-                name="NoCapB",
+            mk_inst(
+                "NoCapB",
+                (Tier(limit=float("inf"), rate=0.12),),
                 institution_type="none",
-                tiers=(Tier(limit=float("inf"), rate=0.12),),
             ),
         ]
 
@@ -426,8 +418,8 @@ class TestAllocate:
 
     def test_monthly_cost_scales_with_horizon(self):
         institutions = [
-            Institution(
-                name="PlanBank",
+            mk_inst(
+                "PlanBank",
                 tiers=(
                     Tier(
                         limit=float("inf"),
@@ -454,8 +446,8 @@ class TestAllocate:
 
     def test_monthly_cost_defaults_to_one_year_when_horizon_omitted(self):
         institutions = [
-            Institution(
-                name="MonthlyPlan",
+            mk_inst(
+                "MonthlyPlan",
                 tiers=(
                     Tier(
                         limit=float("inf"),
@@ -471,17 +463,14 @@ class TestAllocate:
 
     def test_tier_unlock_enforced_for_zero_rate_front_tier(self):
         institutions = [
-            Institution(
-                name="MifelLike",
-                tiers=(
+            mk_inst(
+                "MifelLike",
+                (
                     Tier(limit=100.0, rate=0.0),
                     Tier(limit=float("inf"), rate=0.10),
                 ),
             ),
-            Institution(
-                name="AltBank",
-                tiers=(Tier(limit=float("inf"), rate=0.03),),
-            ),
+            mk_inst("AltBank", (Tier(limit=float("inf"), rate=0.03),)),
         ]
         result = allocate(
             total=300.0,
@@ -495,10 +484,10 @@ class TestAllocate:
 
     def test_bank_isr_withholding_from_first_peso(self):
         institutions = [
-            Institution(
-                name="TaxBank",
+            mk_inst(
+                "TaxBank",
+                (Tier(limit=float("inf"), rate=0.0),),
                 institution_type="banco",
-                tiers=(Tier(limit=float("inf"), rate=0.0),),
             ),
         ]
         result = allocate(total=100_000.0, institutions=institutions)
@@ -509,15 +498,15 @@ class TestAllocate:
 
     def test_sofipo_isr_exemption_applies_per_institution(self):
         institutions = [
-            Institution(
-                name="SofipoTax",
+            mk_inst(
+                "SofipoTax",
+                (Tier(limit=float("inf"), rate=0.0),),
                 institution_type="sofipo",
-                tiers=(Tier(limit=float("inf"), rate=0.0),),
             ),
-            Institution(
-                name="Fallback",
+            mk_inst(
+                "Fallback",
+                (Tier(limit=float("inf"), rate=0.0),),
                 institution_type="none",
-                tiers=(Tier(limit=float("inf"), rate=0.0),),
             ),
         ]
         result = allocate(total=300_000.0, institutions=institutions)
@@ -541,11 +530,11 @@ class TestAllocate:
 
     def test_sofipo_tax_applies_on_excess_over_exemption(self):
         institutions = [
-            Institution(
-                name="SofipoTaxHigh",
+            mk_inst(
+                "SofipoTaxHigh",
+                (Tier(limit=float("inf"), rate=0.0),),
                 institution_type="sofipo",
                 protection_limit=500_000.0,
-                tiers=(Tier(limit=float("inf"), rate=0.0),),
             ),
         ]
         result = allocate(total=300_000.0, institutions=institutions)
@@ -554,10 +543,10 @@ class TestAllocate:
 
     def test_real_interest_tax_base_for_bank_uses_inflation_proxy(self):
         institutions = [
-            Institution(
-                name="TaxBankReal",
+            mk_inst(
+                "TaxBankReal",
+                (Tier(limit=float("inf"), rate=0.10),),
                 institution_type="banco",
-                tiers=(Tier(limit=float("inf"), rate=0.10),),
             ),
         ]
         principal = 100_000.0
@@ -571,10 +560,10 @@ class TestAllocate:
 
     def test_no_real_interest_tax_when_nominal_below_inflation(self):
         institutions = [
-            Institution(
-                name="LowRateBank",
+            mk_inst(
+                "LowRateBank",
+                (Tier(limit=float("inf"), rate=0.03),),
                 institution_type="banco",
-                tiers=(Tier(limit=float("inf"), rate=0.03),),
             ),
         ]
         result = allocate(
@@ -586,7 +575,7 @@ class TestAllocate:
 class TestCompoundingMode:
     @pytest.fixture
     def single_inst(self):
-        return [Institution(name="A", tiers=(Tier(limit=float("inf"), rate=0.10),))]
+        return [mk_inst("A", (Tier(limit=float("inf"), rate=0.10),))]
 
     def test_simple_expected_return_matches_formula(self, single_inst):
         principal = 50_000.0
@@ -622,7 +611,7 @@ class TestCompoundingMode:
         assert result_compound.expected_return > result_simple.expected_return
 
     def test_simple_and_compound_agree_at_zero_rate(self):
-        institutions = [Institution(name="Z", tiers=(Tier(limit=float("inf"), rate=0.0),))]
+        institutions = [mk_inst("Z", (Tier(limit=float("inf"), rate=0.0),))]
         r_simple = allocate(total=10_000.0, institutions=institutions, compounding="simple")
         r_compound = allocate(total=10_000.0, institutions=institutions, compounding="compound")
         assert r_simple.expected_return == pytest.approx(0.0)

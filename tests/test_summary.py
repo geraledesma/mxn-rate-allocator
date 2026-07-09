@@ -14,6 +14,7 @@ from rate_allocator.domain.models import (
     Tier,
 )
 from rate_allocator.workflows.interactive_report import build_interactive_report_html
+from tests.conftest import mk_inst
 
 
 def test_constraint_cost_monthly_scales_with_horizon():
@@ -63,7 +64,7 @@ def test_tier_constraint_cost_sums_active_constraints():
 def test_interactive_report_uses_horizon_semantics_labels():
     pytest.importorskip("pandas")
     institutions = [
-        Institution(name="BankA", tiers=(Tier(limit=float("inf"), rate=0.10),)),
+        mk_inst("BankA", (Tier(limit=float("inf"), rate=0.10),)),
     ]
     result = AllocationResult(
         weights={"BankA": [100.0]},
@@ -93,7 +94,7 @@ def test_interactive_report_spanish_locale():
     pytest.importorskip("pandas")
     pytest.importorskip("matplotlib")
     institutions = [
-        Institution(name="BankA", tiers=(Tier(limit=float("inf"), rate=0.10),)),
+        mk_inst("BankA", (Tier(limit=float("inf"), rate=0.10),)),
     ]
     result = AllocationResult(
         weights={"BankA": [100.0]},

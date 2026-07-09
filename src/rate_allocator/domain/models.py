@@ -74,45 +74,29 @@ class Tier:
 
 
 @dataclass(frozen=True)
-class Institution:
-    """A financial institution with tiered interest rates."""
+class Plan:
+    """A subscription plan within an institution (e.g. Klar Light, Klar Plus).
 
-    name: str
+    Single-plan institutions use plan_key='base' and display_name=institution name.
+    """
+
+    plan_key: str
+    display_name: str
+    monthly_cost: float
     tiers: tuple[Tier, ...]
-    institution_type: InstitutionType = "none"
-    protection_limit: float | None = None
 
     def __post_init__(self):
+        if not self.plan_key:
+            raise ValueError("plan_key must be a non-empty string")
+        if not self.display_name:
+            raise ValueError("display_name must be a non-empty string")
+        if self.monthly_cost < 0:
+            raise ValueError("monthly_cost must be non-negative")
         if not self.tiers:
-            raise ValueError("Institution must have at least one tier")
+            raise ValueError("Plan must have at least one tier")
         limits = [t.limit for t in self.tiers]
         if limits != sorted(limits):
             raise ValueError("Tier limits must be in ascending order")
-        if self.institution_type not in {"banco", "sofipo", "none"}:
-            raise ValueError("institution_type must be banco, sofipo, or none")
-        if self.protection_limit is not None and self.protection_limit < 0:
-            raise ValueError("protection_limit must be non-negative when provided")
-
-    @property
-    def effective_protection_limit(self) -> float | None:
-        """Resolve explicit or default protection cap by institution type."""
-        if self.protection_limit is not None:
-            return self.protection_limit
-        if self.institution_type == "banco":
-            return 3_200_000.0
-        if self.institution_type == "sofipo":
-            return 200_000.0
-        return None
-
-    def protection_limit_for(self, rules: RegulatoryRules) -> float | None:
-        """Resolve effective protection cap using configurable policy rules."""
-        if self.protection_limit is not None:
-            return self.protection_limit
-        if self.institution_type == "banco":
-            return rules.bank_insurance_limit_mxn
-        if self.institution_type == "sofipo":
-            return rules.sofipo_insurance_limit_mxn
-        return None
 
 
 @dataclass
@@ -128,3 +112,66 @@ class AllocationResult:
     total_taxes_paid: float = 0.0
     total_withholding_paid: float = 0.0
     constraint_info: dict[str, list[dict]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Institution:
+    """A financial institution with one or more subscription plans."""
+
+    name: str
+    plans: tuple[Plan, ...]
+    institution_type: InstitutionType = "none"
+    protection_limit: float | None = None
+
+    def __post_init__(self):
+        if not self.plans:
+            raise ValueError("Institution must have at least one plan")
+
+    def protection_limit_for(self, rules: "RegulatoryRules") -> float | None:
+        """Resolve effective protection cap using configurable policy rules."""
+        if self.protection_limit is not None:
+            return self.protection_limit
+        if self.institution_type == "banco":
+            return rules.bank_insurance_limit_mxn
+        if self.institution_type == "sofipo":
+            return rules.sofipo_insurance_limit_mxn
+        return None
+
+    @property
+    def tiers(self) -> tuple[Tier, ...]:
+        """Tiers of the base plan — for optimizer and v1 API compatibility."""
+        for p in self.plans:
+            if p.plan_key == "base":
+                return p.tiers
+        return self.plans[0].tiers
+
+    @property
+    def effective_protection_limit(self) -> float | None:
+        """Alias for protection_limit_for(RegulatoryRules()) — backward compat."""
+        return self.protection_limit_for(RegulatoryRules())
+
+    def flatten(self) -> list["Institution"]:
+        """One Institution per Plan — used by v1 API and the optimizer.
+
+        Each returned Institution has a single 'base' plan whose tiers are the
+        plan's tiers and whose name is the plan's display_name.
+        """
+        if len(self.plans) == 1 and self.plans[0].plan_key == "base":
+            return [self]
+        result = []
+        for plan in self.plans:
+            base_plan = Plan(
+                plan_key="base",
+                display_name=plan.display_name,
+                monthly_cost=plan.monthly_cost,
+                tiers=plan.tiers,
+            )
+            result.append(
+                Institution(
+                    name=plan.display_name,
+                    plans=(base_plan,),
+                    institution_type=self.institution_type,
+                    protection_limit=self.protection_limit,
+                )
+            )
+        return result

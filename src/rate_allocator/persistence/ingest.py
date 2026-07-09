@@ -7,11 +7,11 @@ The contract is:
   no new versions, no closes).
 * For every changed natural key, the previous current row is closed
   (``effective_to`` set) and a new row is inserted with the new attributes.
-  Closed rows keep their original ``change_id``; the batch they were closed
-  by is implied by ``effective_to == batch.applied_at``.
-* Tier order matters in this domain (sequential filling), so tiers are keyed
-  by ``(institution, tier_index)``. Constraint position within a tier is
-  similarly part of identity.
+* Natural key hierarchy:
+    institutions_v:  (business_key)
+    plans_v:         (institution_business_key, plan_key)
+    tiers_v:         (institution_business_key, plan_key, tier_index)
+    constraints_v:   (institution_business_key, plan_key, tier_index, constraint_position)
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from rate_allocator.domain.models import (
     Constraint,
     Institution,
+    Plan,
     RegulatoryRules,
     Tier,
 )
@@ -34,6 +35,7 @@ from rate_allocator.persistence.models import (
     ChangeBatch,
     ConstraintVersion,
     InstitutionVersion,
+    PlanVersion,
     RegulatoryRulesVersion,
     TierVersion,
 )
@@ -48,6 +50,8 @@ class IngestStats:
     batches_created: int = 0
     institution_versions_inserted: int = 0
     institution_versions_closed: int = 0
+    plan_versions_inserted: int = 0
+    plan_versions_closed: int = 0
     tier_versions_inserted: int = 0
     tier_versions_closed: int = 0
     constraint_versions_inserted: int = 0
@@ -66,15 +70,11 @@ def _to_business_key(name: str) -> str:
 
 
 def _limit_to_db(limit: float) -> float | None:
-    if limit == float("inf"):
-        return None
-    return float(limit)
+    return None if limit == float("inf") else float(limit)
 
 
 def _limit_from_db(value) -> float:
-    if value is None:
-        return float("inf")
-    return float(value)
+    return float("inf") if value is None else float(value)
 
 
 def _opt_float(value) -> float | None:
@@ -95,29 +95,31 @@ def _institution_attrs_equal(current: InstitutionVersion, inst: Institution) -> 
     return (
         current.name == inst.name
         and current.institution_type == inst.institution_type
-        and _floats_close(
-            _opt_float(current.protection_limit), inst.protection_limit
-        )
+        and _floats_close(_opt_float(current.protection_limit), inst.protection_limit)
+    )
+
+
+def _plan_attrs_equal(current: PlanVersion, plan: Plan) -> bool:
+    return (
+        current.display_name == plan.display_name
+        and _floats_close(float(current.monthly_cost), plan.monthly_cost, tol=1e-4)
     )
 
 
 def _tier_attrs_equal(current: TierVersion, tier: Tier) -> bool:
-    return _floats_close(
-        _limit_from_db(current.limit_mxn), tier.limit, tol=1e-4
-    ) and _floats_close(float(current.rate), tier.rate, tol=1e-9)
+    return (
+        _floats_close(_limit_from_db(current.limit_mxn), tier.limit, tol=1e-4)
+        and _floats_close(float(current.rate), tier.rate, tol=1e-9)
+    )
 
 
-def _constraint_attrs_equal(
-    current: ConstraintVersion, constraint: Constraint
-) -> bool:
+def _constraint_attrs_equal(current: ConstraintVersion, constraint: Constraint) -> bool:
     return (
         current.type == constraint.type
         and _floats_close(float(current.cost), constraint.cost, tol=1e-6)
         and current.benefit == constraint.benefit
         and _floats_close(
-            _opt_float(current.condition_value),
-            constraint.condition_value,
-            tol=1e-6,
+            _opt_float(current.condition_value), constraint.condition_value, tol=1e-6
         )
         and bool(current.active) == bool(constraint.active)
         and current.constraint_condition == constraint.constraint_condition
@@ -126,7 +128,6 @@ def _constraint_attrs_equal(
 
 
 def _regulatory_payload(rules: RegulatoryRules) -> dict:
-    """Serialize a RegulatoryRules dataclass to a JSON-safe dict."""
     return asdict(rules)
 
 
@@ -136,9 +137,7 @@ def _regulatory_payload_equal(current_payload: dict, expected: dict) -> bool:
     for key, expected_value in expected.items():
         actual_value = current_payload[key]
         if isinstance(expected_value, float) or isinstance(actual_value, float):
-            if not _floats_close(
-                _opt_float(actual_value), _opt_float(expected_value), tol=1e-9
-            ):
+            if not _floats_close(_opt_float(actual_value), _opt_float(expected_value), tol=1e-9):
                 return False
         else:
             if actual_value != expected_value:
@@ -148,8 +147,6 @@ def _regulatory_payload_equal(current_payload: dict, expected: dict) -> bool:
 
 @dataclass
 class _BatchHandle:
-    """Lazy holder for the ``ChangeBatch`` row created on first real change."""
-
     session: Session
     applied_at: datetime
     source: str
@@ -191,8 +188,7 @@ def ingest_institutions(
         actor: Optional human/service identifier.
         note: Optional free-text note.
         deactivate_missing: If True, current institutions absent from ``institutions``
-            are closed (treated as a tombstone). Defaults to False to keep partial
-            uploads from wiping the catalog.
+            are closed (treated as a tombstone). Defaults to False.
         now: Override the SCD2 timestamp; defaults to ``datetime.now(timezone.utc)``.
     """
     institutions = list(institutions)
@@ -207,37 +203,42 @@ def ingest_institutions(
         stats=stats,
     )
 
-    current_inst = {
+    # Load all current (active) rows up front
+    current_inst: dict[str, InstitutionVersion] = {
         v.business_key: v
         for v in session.execute(
-            select(InstitutionVersion).where(
-                InstitutionVersion.effective_to.is_(None)
-            )
+            select(InstitutionVersion).where(InstitutionVersion.effective_to.is_(None))
         ).scalars()
     }
-    current_tiers: dict[tuple[str, int], TierVersion] = {
-        (v.institution_business_key, v.tier_index): v
+    current_plans: dict[tuple[str, str], PlanVersion] = {
+        (v.institution_business_key, v.plan_key): v
+        for v in session.execute(
+            select(PlanVersion).where(PlanVersion.effective_to.is_(None))
+        ).scalars()
+    }
+    current_tiers: dict[tuple[str, str, int], TierVersion] = {
+        (v.institution_business_key, v.plan_key, v.tier_index): v
         for v in session.execute(
             select(TierVersion).where(TierVersion.effective_to.is_(None))
         ).scalars()
     }
-    current_constraints: dict[tuple[str, int, int], ConstraintVersion] = {
-        (v.institution_business_key, v.tier_index, v.constraint_position): v
+    current_constraints: dict[tuple[str, str, int, int], ConstraintVersion] = {
+        (v.institution_business_key, v.plan_key, v.tier_index, v.constraint_position): v
         for v in session.execute(
-            select(ConstraintVersion).where(
-                ConstraintVersion.effective_to.is_(None)
-            )
+            select(ConstraintVersion).where(ConstraintVersion.effective_to.is_(None))
         ).scalars()
     }
 
     seen_inst_keys: set[str] = set()
-    seen_tier_keys: set[tuple[str, int]] = set()
-    seen_constraint_keys: set[tuple[str, int, int]] = set()
+    seen_plan_keys: set[tuple[str, str]] = set()
+    seen_tier_keys: set[tuple[str, str, int]] = set()
+    seen_constraint_keys: set[tuple[str, str, int, int]] = set()
 
     for inst in institutions:
         bk = _to_business_key(inst.name)
         seen_inst_keys.add(bk)
 
+        # ── Institution ────────────────────────────────────────────────────────
         current = current_inst.get(bk)
         if current is None or not _institution_attrs_equal(current, inst):
             if current is not None:
@@ -256,56 +257,84 @@ def ingest_institutions(
             )
             stats.institution_versions_inserted += 1
 
-        for tier_index, tier in enumerate(inst.tiers):
-            tier_key = (bk, tier_index)
-            seen_tier_keys.add(tier_key)
-            current_tier = current_tiers.get(tier_key)
-            if current_tier is None or not _tier_attrs_equal(current_tier, tier):
-                if current_tier is not None:
-                    current_tier.effective_to = timestamp
-                    stats.tier_versions_closed += 1
+        # ── Plans ──────────────────────────────────────────────────────────────
+        for plan in inst.plans:
+            plan_key = (bk, plan.plan_key)
+            seen_plan_keys.add(plan_key)
+
+            current_plan = current_plans.get(plan_key)
+            if current_plan is None or not _plan_attrs_equal(current_plan, plan):
+                if current_plan is not None:
+                    current_plan.effective_to = timestamp
+                    stats.plan_versions_closed += 1
                 session.add(
-                    TierVersion(
+                    PlanVersion(
                         institution_business_key=bk,
-                        tier_index=tier_index,
-                        limit_mxn=_limit_to_db(tier.limit),
-                        rate=tier.rate,
+                        plan_key=plan.plan_key,
+                        display_name=plan.display_name,
+                        monthly_cost=plan.monthly_cost,
                         effective_from=timestamp,
                         effective_to=None,
                         change_id=batch.get().change_id,
                     )
                 )
-                stats.tier_versions_inserted += 1
+                stats.plan_versions_inserted += 1
 
-            for position, constraint in enumerate(tier.constraints):
-                constraint_key = (bk, tier_index, position)
-                seen_constraint_keys.add(constraint_key)
-                current_c = current_constraints.get(constraint_key)
-                if current_c is None or not _constraint_attrs_equal(
-                    current_c, constraint
-                ):
-                    if current_c is not None:
-                        current_c.effective_to = timestamp
-                        stats.constraint_versions_closed += 1
+            # ── Tiers ──────────────────────────────────────────────────────────
+            for tier_index, tier in enumerate(plan.tiers):
+                tier_key = (bk, plan.plan_key, tier_index)
+                seen_tier_keys.add(tier_key)
+
+                current_tier = current_tiers.get(tier_key)
+                if current_tier is None or not _tier_attrs_equal(current_tier, tier):
+                    if current_tier is not None:
+                        current_tier.effective_to = timestamp
+                        stats.tier_versions_closed += 1
                     session.add(
-                        ConstraintVersion(
+                        TierVersion(
                             institution_business_key=bk,
+                            plan_key=plan.plan_key,
                             tier_index=tier_index,
-                            constraint_position=position,
-                            type=constraint.type,
-                            cost=constraint.cost,
-                            benefit=constraint.benefit,
-                            condition_value=constraint.condition_value,
-                            active=constraint.active,
-                            constraint_condition=constraint.constraint_condition,
-                            benefit_condition=constraint.benefit_condition,
+                            limit_mxn=_limit_to_db(tier.limit),
+                            rate=tier.rate,
                             effective_from=timestamp,
                             effective_to=None,
                             change_id=batch.get().change_id,
                         )
                     )
-                    stats.constraint_versions_inserted += 1
+                    stats.tier_versions_inserted += 1
 
+                # ── Constraints ────────────────────────────────────────────────
+                for position, constraint in enumerate(tier.constraints):
+                    constraint_key = (bk, plan.plan_key, tier_index, position)
+                    seen_constraint_keys.add(constraint_key)
+
+                    current_c = current_constraints.get(constraint_key)
+                    if current_c is None or not _constraint_attrs_equal(current_c, constraint):
+                        if current_c is not None:
+                            current_c.effective_to = timestamp
+                            stats.constraint_versions_closed += 1
+                        session.add(
+                            ConstraintVersion(
+                                institution_business_key=bk,
+                                plan_key=plan.plan_key,
+                                tier_index=tier_index,
+                                constraint_position=position,
+                                type=constraint.type,
+                                cost=constraint.cost,
+                                benefit=constraint.benefit,
+                                condition_value=constraint.condition_value,
+                                active=constraint.active,
+                                constraint_condition=constraint.constraint_condition,
+                                benefit_condition=constraint.benefit_condition,
+                                effective_from=timestamp,
+                                effective_to=None,
+                                change_id=batch.get().change_id,
+                            )
+                        )
+                        stats.constraint_versions_inserted += 1
+
+    # ── Close orphaned tiers/constraints for institutions we touched ───────────
     for tier_key, current_tier in current_tiers.items():
         bk = tier_key[0]
         if bk in seen_inst_keys and tier_key not in seen_tier_keys:
@@ -325,6 +354,15 @@ def ingest_institutions(
             stats.constraint_versions_closed += 1
             batch.get()
 
+    # ── Close plans for institutions we touched ────────────────────────────────
+    for plan_key_tuple, current_plan in current_plans.items():
+        bk = plan_key_tuple[0]
+        if bk in seen_inst_keys and plan_key_tuple not in seen_plan_keys:
+            current_plan.effective_to = timestamp
+            stats.plan_versions_closed += 1
+            batch.get()
+
+    # ── Deactivate institutions absent from input (tombstone mode) ────────────
     if deactivate_missing:
         for bk, current in current_inst.items():
             if bk in seen_inst_keys:
@@ -333,13 +371,17 @@ def ingest_institutions(
             stats.institution_versions_closed += 1
             stats.deactivated_institutions += 1
             batch.get()
-            for tier_key, current_tier in current_tiers.items():
-                if tier_key[0] == bk and current_tier.effective_to is None:
-                    current_tier.effective_to = timestamp
+            for tk, ct in current_tiers.items():
+                if tk[0] == bk and ct.effective_to is None:
+                    ct.effective_to = timestamp
                     stats.tier_versions_closed += 1
-            for constraint_key, current_c in current_constraints.items():
-                if constraint_key[0] == bk and current_c.effective_to is None:
-                    current_c.effective_to = timestamp
+            for pk, cp in current_plans.items():
+                if pk[0] == bk and cp.effective_to is None:
+                    cp.effective_to = timestamp
+                    stats.plan_versions_closed += 1
+            for ck, cc in current_constraints.items():
+                if ck[0] == bk and cc.effective_to is None:
+                    cc.effective_to = timestamp
                     stats.constraint_versions_closed += 1
 
     return stats
@@ -374,9 +416,7 @@ def ingest_regulatory_rules(
         )
     ).scalar_one_or_none()
 
-    if current is not None and _regulatory_payload_equal(
-        current.payload, expected_payload
-    ):
+    if current is not None and _regulatory_payload_equal(current.payload, expected_payload):
         return stats
 
     if current is not None:

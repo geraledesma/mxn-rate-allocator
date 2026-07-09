@@ -17,6 +17,7 @@ from rate_allocator.adapters.noticias_yaml import load_noticias_yaml
 from rate_allocator.adapters.regulatory_loader import load_regulatory_rules_from_yaml
 from rate_allocator.adapters.yaml_loader import load_institutions_with_overrides
 from rate_allocator.core.finance.rates import discrete_compounding_accumulation_factor
+from rate_allocator.domain.models import Plan
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_FILE = REPO_ROOT / "data" / "sample1.yaml"
@@ -75,7 +76,8 @@ def _try_load_db_snapshot() -> tuple[list[Institution], RegulatoryRules | None, 
         return None
 
 
-def _load_snapshot() -> tuple[list[Institution], RegulatoryRules, datetime]:
+def _load_snapshot_raw() -> tuple[list[Institution], RegulatoryRules, datetime]:
+    """Load institutions with full multi-plan structure (for v2 API)."""
     snapshot = _try_load_db_snapshot()
     fallback_rules = load_regulatory_rules_from_yaml(str(RULES_FILE))
     if snapshot:
@@ -85,6 +87,15 @@ def _load_snapshot() -> tuple[list[Institution], RegulatoryRules, datetime]:
     insts = load_institutions_with_overrides(str(DATA_FILE), {})
     mtime = datetime.fromtimestamp(DATA_FILE.stat().st_mtime, tz=timezone.utc)
     return insts, fallback_rules, mtime
+
+
+def _load_snapshot() -> tuple[list[Institution], RegulatoryRules, datetime]:
+    """Flatten multi-plan institutions — one Institution per plan, for v1 API."""
+    raw, rules, ts = _load_snapshot_raw()
+    flat: list[Institution] = []
+    for inst in raw:
+        flat.extend(inst.flatten())
+    return flat, rules, ts
 
 
 # ── formatting helpers (mirror streamlit_app.py) ─────────────────────────────
@@ -159,6 +170,66 @@ def _institucion_payload(inst: Institution, rules: RegulatoryRules) -> dict:
     }
 
 
+def _v2_plan_payload(plan: Plan, inst: Institution, rules: RegulatoryRules) -> dict:
+    """Build plan-level dict for /v2/instituciones."""
+    tiers = plan.tiers
+    best = max(t.rate for t in tiers)
+    best_tier = max(tiers, key=lambda t: t.rate)
+    limite_label = "" if best_tier.limit == float("inf") else f"hasta ${best_tier.limit:,.0f}"
+
+    texts: list[str] = []
+    for tier in tiers:
+        for c in tier.constraints:
+            if not c.active:
+                continue
+            if c.benefit == "membership_plan":
+                texts.append(f"Membresía ${c.cost:,.0f}/mes")
+            elif c.benefit == "high_rate_tier" and c.cost <= 10:
+                texts.append("1 compra al mes")
+            elif c.benefit == "high_rate_tier" and c.cost > 10:
+                texts.append(f"Gastar ${c.cost:,.0f}/mes")
+
+    tramos = []
+    for tier in tiers:
+        if tier.limit == float("inf"):
+            lbl, val = "sin límite", None
+        else:
+            lbl, val = f"hasta ${tier.limit:,.0f}", float(tier.limit)
+        tramos.append({"limite": val, "limite_label": lbl, "tasa": float(tier.rate), "tasa_label": f"{tier.rate:.0%}"})
+
+    return {
+        "plan_key": plan.plan_key,
+        "display_name": plan.display_name,
+        "costo_mensual": float(plan.monthly_cost),
+        "tasa_max": float(best),
+        "tasa_max_label": f"{best:.0%}",
+        "tasa_max_limite_label": limite_label,
+        "tramos": tramos,
+        "condicion": " · ".join(texts) if texts else "Sin condición",
+        "tiene_condicion": bool(texts),
+    }
+
+
+def _v2_institution_payload(inst: Institution, rules: RegulatoryRules) -> dict:
+    """Build institution payload with nested plans for /v2/instituciones."""
+    tipo = (inst.institution_type or "").lower()
+    return {
+        "nombre": inst.name,
+        "tipo": tipo,
+        "tipo_label": TIPO_LABEL.get(tipo, "—"),
+        "cobertura_label": _coverage_label(inst, rules),
+        "planes": [_v2_plan_payload(p, inst, rules) for p in inst.plans],
+    }
+
+
+def _parse_compound_key(key: str) -> tuple[str, str]:
+    """Parse 'Klar::light' → ('Klar', 'light'). No '::' → (key, 'base')."""
+    if "::" in key:
+        inst_name, plan_key = key.split("::", 1)
+        return inst_name.strip(), plan_key.strip()
+    return key.strip(), "base"
+
+
 def _max_allocatable(institutions: list[Institution], rules: RegulatoryRules) -> float:
     """Sum of protection limits across institutions. Returns inf if any institution has no cap."""
     total = 0.0
@@ -205,6 +276,22 @@ class AllocateRequest(BaseModel):
     @field_validator("instituciones_habilitadas")
     @classmethod
     def _no_empty_names(cls, v: list[str]) -> list[str]:
+        cleaned = [s.strip() for s in v if s and s.strip()]
+        if not cleaned:
+            raise ValueError("instituciones_habilitadas no puede estar vacío")
+        return cleaned
+
+
+class AllocateV2Request(BaseModel):
+    """v2 allocate — uses compound keys like 'Klar::light' or 'Plata::plus'."""
+
+    total: float = Field(..., ge=TOTAL_MIN, le=TOTAL_MAX)
+    instituciones_habilitadas: list[str] = Field(..., min_length=1)
+    horizonte_anos: float = Field(default=1.0, ge=HORIZON_MIN, le=HORIZON_MAX)
+
+    @field_validator("instituciones_habilitadas")
+    @classmethod
+    def _no_empty_keys(cls, v: list[str]) -> list[str]:
         cleaned = [s.strip() for s in v if s and s.strip()]
         if not cleaned:
             raise ValueError("instituciones_habilitadas no puede estar vacío")
@@ -321,6 +408,189 @@ async def get_instituciones() -> JSONResponse:
         "ultima_actualizacion": _date_es(ts.astimezone(timezone.utc).date()),
     }
     return JSONResponse(payload)
+
+
+@app.get("/v2/instituciones")
+async def get_instituciones_v2() -> JSONResponse:
+    """Institution list grouped by plans — for the v2 UI."""
+    raw, rules, ts = _load_snapshot_raw()
+
+    def _best_rate_raw(inst: Institution) -> float:
+        return max(t.rate for p in inst.plans for t in p.tiers)
+
+    raw_sorted = sorted(raw, key=_best_rate_raw, reverse=True)
+    return JSONResponse({
+        "instituciones": [_v2_institution_payload(i, rules) for i in raw_sorted],
+        "ultima_actualizacion": _date_es(ts.astimezone(timezone.utc).date()),
+    })
+
+
+@app.post("/v2/api/allocate")
+async def post_allocate_v2(body: AllocateV2Request) -> JSONResponse:
+    """Allocate using compound keys like 'Klar::light' or 'Plata::plus'."""
+    raw, rules, _ = _load_snapshot_raw()
+    by_name: dict[str, Institution] = {i.name: i for i in raw}
+
+    selected: list[tuple[str, Institution]] = []  # (compound_key, flat_inst)
+    missing: list[str] = []
+
+    for compound_key in body.instituciones_habilitadas:
+        inst_name, plan_key = _parse_compound_key(compound_key)
+        inst = by_name.get(inst_name)
+        if inst is None:
+            missing.append(compound_key)
+            continue
+        plan = next((p for p in inst.plans if p.plan_key == plan_key), None)
+        if plan is None:
+            missing.append(compound_key)
+            continue
+        flat_plan = Plan(plan_key="base", display_name=plan.display_name,
+                         monthly_cost=plan.monthly_cost, tiers=plan.tiers)
+        flat_inst = Institution(
+            name=plan.display_name,
+            plans=(flat_plan,),
+            institution_type=inst.institution_type,
+            protection_limit=inst.protection_limit,
+        )
+        selected.append((compound_key, flat_inst))
+
+    if not selected:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ninguna institución/plan existe en la base de datos. No encontradas: {missing}",
+        )
+
+    flat_insts = [fi for _, fi in selected]
+
+    max_cap = _max_allocatable(flat_insts, rules)
+    if body.total > max_cap:
+        solo_sofipo = all((inst.institution_type or "").lower() == "sofipo" for inst in flat_insts)
+        if solo_sofipo:
+            msg = (
+                f"Con solo SOFIPOs seleccionadas, el monto máximo cubierto por Prosofipo es "
+                f"${max_cap:,.0f} MXN. Tu monto (${body.total:,.0f} MXN) excede ese límite. "
+                "Agrega al menos un banco para poder optimizar montos mayores."
+            )
+        elif len(flat_insts) == 1:
+            msg = (
+                f"Con solo {flat_insts[0].name} seleccionada, el máximo cubierto es "
+                f"${max_cap:,.0f} MXN. Selecciona más instituciones o ajusta el monto."
+            )
+        else:
+            msg = (
+                f"Tu monto (${body.total:,.0f} MXN) excede la cobertura total de las instituciones "
+                f"seleccionadas (${max_cap:,.0f} MXN). Selecciona más instituciones o reduce el monto."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"tipo": "monto_excede_cobertura", "mensaje_usuario": msg},
+        )
+
+    try:
+        result = allocate(
+            total=body.total,
+            institutions=flat_insts,
+            horizon_years=body.horizonte_anos,
+            periods_per_year=_PERIODS_PER_YEAR,
+            regulatory_rules=rules,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "tipo": "optimizer_infeasible",
+                "mensaje_usuario": (
+                    "No fue posible encontrar una asignación con los parámetros seleccionados. "
+                    "Intenta ajustar el monto o seleccionar más instituciones."
+                ),
+                "detalle_tecnico": str(exc),
+            },
+        ) from exc
+
+    inst_rows = []
+    for ck, inst in selected:
+        tier_amounts = result.allocations.get(inst.name, [])
+        total_inst = sum(tier_amounts)
+        if total_inst < 1:
+            continue
+        inst_interest = sum(
+            amt * (discrete_compounding_accumulation_factor(tier.rate, body.horizonte_anos, _PERIODS_PER_YEAR) - 1.0)
+            for amt, tier in zip(tier_amounts, inst.tiers, strict=True)
+        )
+        inst_rows.append((ck, inst, tier_amounts, total_inst, inst_interest))
+
+    inst_rows.sort(key=lambda x: x[3], reverse=True)
+
+    asignaciones = []
+    chart_labels: list[str] = []
+    chart_montos: list[float] = []
+    chart_tasas: list[float] = []
+
+    for ck, inst, tier_amounts, total_inst, inst_interest in inst_rows:
+        cond_text, tiene_cond = _constraint_text(inst)
+        tipo = (inst.institution_type or "").lower()
+        tramos_payload = []
+        n_visible = 0
+        for i, (amt, tier) in enumerate(zip(tier_amounts, inst.tiers, strict=True), 1):
+            if amt < 1:
+                continue
+            n_visible += 1
+            tramos_payload.append({
+                "numero": n_visible,
+                "indice_original": i,
+                "monto": float(amt),
+                "monto_label": _fmt_mxn(amt),
+                "limite_label": ("sin límite" if tier.limit == float("inf") else f"hasta ${tier.limit:,.0f}"),
+                "tasa": float(tier.rate),
+                "tasa_label": f"{tier.rate:.2%}",
+                "rendimiento": float(amt * (discrete_compounding_accumulation_factor(tier.rate, body.horizonte_anos, _PERIODS_PER_YEAR) - 1.0)),
+                "rendimiento_label": _fmt_mxn(amt * (discrete_compounding_accumulation_factor(tier.rate, body.horizonte_anos, _PERIODS_PER_YEAR) - 1.0)),
+            })
+        asignaciones.append({
+            "compound_key": ck,
+            "institucion": inst.name,
+            "tipo": tipo,
+            "tipo_label": TIPO_LABEL.get(tipo, "—"),
+            "monto_total": float(total_inst),
+            "monto_total_label": _fmt_mxn(total_inst),
+            "rendimiento": float(inst_interest),
+            "rendimiento_label": _fmt_mxn(inst_interest),
+            "cobertura_label": _coverage_label(inst, rules),
+            "condicion": cond_text,
+            "tiene_condicion": tiene_cond,
+            "tramos": tramos_payload,
+            "tasa_promedio": float(inst_interest / total_inst) if total_inst > 0 else 0.0,
+            "tasa_promedio_label": f"{(inst_interest / total_inst):.2%}" if total_inst > 0 else "0%",
+        })
+        chart_labels.append(ck)
+        chart_montos.append(float(total_inst))
+        chart_tasas.append(float(inst_interest / total_inst) if total_inst > 0 else 0.0)
+
+    cetes_return = body.total * (discrete_compounding_accumulation_factor(CETES_28_RATE, body.horizonte_anos, _PERIODS_PER_YEAR) - 1.0)
+    delta = result.expected_return - cetes_return
+
+    return JSONResponse({
+        "tasa_efectiva": float(result.effective_rate),
+        "tasa_efectiva_label": f"{result.effective_rate:.2%} anual",
+        "rendimiento_esperado": float(result.expected_return),
+        "rendimiento_esperado_label": _fmt_mxn(result.expected_return),
+        "total_asignado": float(result.total_allocated),
+        "total_asignado_label": _fmt_mxn(result.total_allocated),
+        "comparativa": {
+            "tasa_cetes": CETES_28_RATE,
+            "tasa_cetes_label": f"{CETES_28_RATE:.2%}",
+            "rendimiento_cetes": float(cetes_return),
+            "rendimiento_cetes_label": _fmt_mxn(cetes_return),
+            "delta": float(delta),
+            "delta_label": _fmt_mxn(delta),
+        },
+        "asignaciones": asignaciones,
+        "chart_data": {
+            "labels": chart_labels,
+            "montos": chart_montos,
+            "tasas": chart_tasas,
+        },
+    })
 
 
 @app.post("/api/allocate")

@@ -2,121 +2,175 @@
 #
 # REGLA: La tasa que entra al DB es siempre la tasa NOMINAL del T&C oficial.
 # Nunca usar el GAT ni el valor del homepage como fuente de tasa.
-# Cada institución debe tener source_url apuntando al T&C vigente.
+#
+# FORMATO: institutions con un solo plan usan shorthand "tiers:" directamente.
+# Institutions con múltiples planes usan la clave "plans:".
 
 institutions:
-  # BANCO PLATA — Ahorro Flexible
+
+  # ── PLATA ────────────────────────────────────────────────────────────────────
   # Fuente T&C: https://prime.platacard.mx/file-service/static/eula/ahorro_flexible_booklet.pdf
-  # Fuente tasas: https://bancoplata.mx/es/cuenta (sección "Tasas anuales")
   # "Banco Plata S.A., Institución de Banca Múltiple" (CNBV dic 2024) — cobertura IPAB.
-  #
-  # PRODUCTOS y MEMBRESÍAS (jul 2026, tasas nominales, no GAT):
-  #   Plata Cuenta (cuenta corriente):  7% primeros $20,000 — requiere Plata+
-  #   Ahorro Flexible sin Plata+:       7% sin límite — sin costo adicional
-  #   Ahorro Flexible con Plata+:      10% sin límite — membresía $114.84/mes ($99+IVA)
-  #   Ahorro Fijo sin Plata+:          7%–8%  · 30–360 días — FUERA DE ALCANCE (plazo fijo)
-  #   Ahorro Fijo con Plata+:          9%–11% · 30–360 días — FUERA DE ALCANCE (plazo fijo)
-  #   Promo jul 2026: 11% al solicitar antes del 9-jul — solo nuevos clientes.
-  #
-  # MODELO: dos instituciones separadas para que el usuario elija en paso 2.
-  #   Break-even membresía: $114.84*12 / (0.10-0.07) ≈ $45,936 MXN.
-  #   Con >$45,936 en Plata, conviene Plata+. El optimizer asigna correctamente
-  #   si el usuario selecciona solo una de las dos opciones.
-
-  - name: "Plata · Ahorro Flexible"
+  # Tasas nominales jul 2026:
+  #   Ahorro Flexible sin Plata+:  7% sin límite — sin costo adicional
+  #   Ahorro Flexible con Plata+: 10% sin límite — membresía $114.84/mes ($99+IVA)
+  # Break-even: $114.84*12 / (0.10-0.07) ≈ $45,936 MXN
+  - name: Plata
     institution_type: banco
-    source_url: https://prime.platacard.mx/file-service/static/eula/ahorro_flexible_booklet.pdf
-    tiers:
-      - limit: .inf
-        rate: 0.07  # Ahorro Flexible sin membresía Plata+
+    plans:
+      - plan_key: base
+        display_name: Plata Ahorro Flexible
+        monthly_cost: 0
+        tiers:
+          - limit: .inf
+            rate: 0.07
 
-  - name: "Plata · Ahorro Plata+"
-    institution_type: banco
-    source_url: https://prime.platacard.mx/file-service/static/eula/ahorro_flexible_booklet.pdf
-    tiers:
-      - limit: .inf
-        rate: 0.10  # Ahorro Flexible con membresía Plata+ ($114.84/mes = $99+IVA)
-        constraints:
-          - type: monthly_expense
-            cost: 114.84  # membresía Plata+
-            benefit: membership_plan
-            condition_value: 114.84
-            active: true
+      - plan_key: plus
+        display_name: "Plata Ahorro Flexible Plata+"
+        monthly_cost: 114.84  # membresía $99+IVA/mes
+        tiers:
+          - limit: .inf
+            rate: 0.10
+            constraints:
+              - type: monthly_expense
+                cost: 114.84
+                benefit: membership_plan
+                condition_value: 114.84
+                active: true
 
+  # ── KLAR ─────────────────────────────────────────────────────────────────────
+  # Fuente: https://www.klar.mx/inversion + deceroalinfinito.com (jul 2026)
+  # "Klar México, S.A. de C.V., Sociedad Financiera Popular" (CNBV) — cobertura Prosofipo.
+  # Tasas nominales (decero ✓):
+  #   Light (sin suscripción): 3.0% — sin costo mensual
+  #   Plus (suscripción): 5.0% — costo mensual PENDIENTE verificar klar.mx
+  #   Platino: 8.5% — tasas.mx confirmó 8.5% para planes de pago; desagregación PENDIENTE
+  # tasas.mx mostraba 8.5% agrupado (Plus+Platino) — removido del auto-scrape.
+  - name: Klar
+    institution_type: sofipo
+    plans:
+      - plan_key: light
+        display_name: Klar Light
+        monthly_cost: 0
+        tiers:
+          - limit: .inf
+            rate: 0.03
+
+      - plan_key: plus
+        display_name: Klar Plus
+        monthly_cost: 0  # PENDIENTE: verificar precio en klar.mx
+        tiers:
+          - limit: .inf
+            rate: 0.05
+
+      - plan_key: platino
+        display_name: Klar Platino
+        monthly_cost: 0  # PENDIENTE: verificar precio en klar.mx
+        tiers:
+          - limit: .inf
+            rate: 0.085  # tasas.mx 8.5% — verificar si aplica solo a Platino o también Plus
+
+  # ── UALA ─────────────────────────────────────────────────────────────────────
+  # Fuente: https://www.uala.mx/tyc-uala-cuenta-con-rendimiento-plus (T&C V9)
+  # "Ualá S.A., Institución de Banca Múltiple" — cobertura IPAB.
+  # Tasas nominales jul 2026:
+  #   Tasa Base:      6.75% hasta $30k — sin condición (decero confirma jul 2026)
+  #   Tasa Plus:      12%   hasta $30k — gasto ≥$3,000/mes (T&C cl. 5.2)
+  #   Tasa Plus alta: 15%   hasta $30k — gasto ≥$6,000/mes (T&C cl. 5.3)
+  #   Excedente: sin rendimiento (T&C cl. 6.3)
+  # Modelo: los 3 modos son alternativos (no acumulados). Se modelan como
+  # tramos con constraints hasta que el engine soporte condition_tiers nativos.
   - name: Uala
-    institution_type: banco  # "Ualá S.A., Institución de Banca Múltiple" — T&C V9
-    source_url: https://www.uala.mx/tyc-uala-cuenta-con-rendimiento-plus
-    # T&C V9 — vigente Jul 2026. Tasas nominales (no GAT):
-    #   Tasa Base:      desconocida (sin condición de gasto)
-    #   Tasa Plus:      12% nominal — gasto mensual ≥ $3,000 MXN (T&C cl. 5.2)
-    #   Tasa Plus alta: 15% nominal — gasto mensual ≥ $6,000 MXN (T&C cl. 5.3)
-    #   Límite saldo:   $30,000 MXN para cualquier Tasa Plus (T&C cl. 6.3)
-    #   Excedente:      sin rendimiento
-    #   El 16% en homepage es el GAT del 15% nominal (tasa efectiva anual compuesta)
-    #
-    # NOTA DE MODELO: los 3 modos son alternativos por condición de gasto, no
-    # tramos acumulados por saldo. El modelo actual no soporta condition_tiers
-    # nativos — se modelan como tramos con constraints. El optimizer usa el tramo
-    # cuya constraint el usuario puede activar.
+    institution_type: banco
     tiers:
-      # Tramo intermedio: 12% hasta $30k — requiere gasto ≥$3,000/mes
       - limit: 30_000
-        rate: 0.12  # T&C cl. 5.2 — Tasa Plus
+        rate: 0.0675  # Tasa Base — sin condición
+      - limit: 30_000
+        rate: 0.12    # Tasa Plus — requiere gasto ≥$3,000/mes
         constraints:
           - type: monthly_expense
             cost: 3000.0
             benefit: mid_rate_tier
             condition_value: 3000.0
             active: true
-      # Tramo alto: 15% hasta $30k — requiere gasto ≥$6,000/mes (override del anterior)
-      # TODO modelo: cuando condition_tiers esté implementado, reemplazar por tiers alternativos
       - limit: 30_000
-        rate: 0.15  # T&C cl. 5.3 — Tasa Plus más alta
+        rate: 0.15    # Tasa Plus alta — requiere gasto ≥$6,000/mes
         constraints:
           - type: monthly_expense
             cost: 6000.0
             benefit: high_rate_tier
             condition_value: 6000.0
             active: true
-      # Excedente: sin rendimiento (T&C cl. 6.3)
       - limit: .inf
-        rate: 0.0
+        rate: 0.0     # Excedente sin rendimiento
 
+  # ── STORI ────────────────────────────────────────────────────────────────────
+  # Fuente: https://www.storicard.com/files/stori-cuentamas/folleto-informativo-depositos.pdf?v=20260113
+  # "Stori México, S.A. de C.V., Sociedad Financiera Popular" — cobertura Prosofipo.
+  # Tasa nominal Cuenta+ a la vista: ~6.77% (GAT Nominal 7.00%, may 2026)
   - name: Stori
-    institution_type: sofipo  # "Stori México, S.A. de C.V., Sociedad Financiera Popular"
-    source_url: https://www.storicard.com/files/stori-cuentamas/folleto-informativo-depositos.pdf?v=20260113
-    # Folleto Informativo Cuenta de Depósito — vigente ene 2026.
-    # Tasa nominal CUENTA A LA VISTA (Stori Cuenta+):
-    #   ~6.77% nominal — GAT Nominal 7.00% (vigente abr-may 2026, puede variar mensual)
-    # NOTA: tasas.mx solo muestra tasas de PLAZO FIJO para Stori (sin columna "vista").
-    #   Stori Inversión+ 60 días: 15% nominal — FUERA DE ALCANCE (plazo fijo >1 mes... bueno, 60 días)
-    #   Stori Inversión+ 180 días: 8.25% nominal — FUERA DE ALCANCE
-    # La "Stori Cuenta+" es el único producto a la vista y se maneja aquí manualmente.
+    institution_type: sofipo
     tiers:
       - limit: .inf
-        rate: 0.0677  # Folleto ene 2026 — tasa nominal Cuenta+ a la vista (variable mensual)
+        rate: 0.0677
 
+  # ── FINSUS ───────────────────────────────────────────────────────────────────
+  # Fuente: https://finsus.mx/faqs-items/cuales-son-las-tasas-que-manejan-en-cuenta-de-ahorro-y-en-inversion/
+  # "Financiera Sustentable de México, S.A. de C.V., S.F.P." (CNBV) — cobertura Prosofipo.
+  # ⚠️ EN REVISIÓN — tasa a la vista no confirmada. Fuentes contradictorias:
+  #   AI jul 2026: "4% anual a la vista" | Otra fuente: "6-7.5% liquidez inmediata (¿Finsus+?)"
+  #   tasas.mx solo muestra plazos fijos — FUERA DE ALCANCE.
+  # TODO: confirmar contra FAQ o PDF de costos.
   - name: Finsus
-    institution_type: sofipo  # "Financiera Sustentable de México, S.A. de C.V., S.F.P." (CNBV)
-    source_url: https://finsus.mx/faqs-items/cuales-son-las-tasas-que-manejan-en-cuenta-de-ahorro-y-en-inversion/
-    # ⚠️  EN REVISIÓN — tasa a la vista no confirmada con fuente primaria.
-    # Fuentes consultadas son contradictorias:
-    #   - Búsqueda jul 2026 (resumen AI): "4% anual" para cuenta a la vista (datos ene 2026)
-    #   - Otra fuente: "6-7.5% con liquidez inmediata" (podría ser Finsus+)
-    # tasas.mx solo muestra plazos fijos (7 días → 1 año: 7.09%-10.09%) — FUERA DE ALCANCE.
-    # PDF costos: https://finsus.mx/archivos/Tablas-de-costos-y-comisiones-de-Productos-de-ahorro-e-inversion.pdf
-    # TODO: leer FAQ o PDF de costos directamente para confirmar tasa a la vista exacta.
+    institution_type: sofipo
     tiers:
       - limit: .inf
-        rate: 0.04  # PENDIENTE — 4% es estimado no confirmado. Usar con cautela.
+        rate: 0.04  # PENDIENTE — estimado no confirmado
 
+  # ── REVOLUT ──────────────────────────────────────────────────────────────────
+  # Fuente: https://www.revolut.com/es-MX/ + T&C Revolut MX (jul 2026)
+  # "Revolut Advanced Payments" (CNBV) — cobertura IPAB.
+  # tasas.mx mostraba 15% agrupado sin desagregar por plan — removido del auto-scrape.
+  # Costos de membresía PENDIENTE verificar en revolut.com/es-MX/plans:
+  #   Standard (gratis):  ~5% sin límite
+  #   Premium  (~$199/mes): ~7.5% sin límite  — PENDIENTE confirmar tasa y costo MXN
+  #   Metal    (~$349/mes): ~15% hasta $25k   — PENDIENTE confirmar tasa, costo y límite
+  # Fuente de tasas: scraped_live.yaml histórico (tiers 5%/7.5%/15%); pendiente T&C PDF.
+  - name: Revolut
+    institution_type: banco
+    plans:
+      - plan_key: standard
+        display_name: Revolut Standard
+        monthly_cost: 0
+        tiers:
+          - limit: .inf
+            rate: 0.05
+
+      - plan_key: premium
+        display_name: Revolut Premium
+        monthly_cost: 0  # PENDIENTE: verificar precio MXN en revolut.com/es-MX/plans
+        tiers:
+          - limit: .inf
+            rate: 0.075  # PENDIENTE: confirmar vs T&C
+
+      - plan_key: metal
+        display_name: Revolut Metal
+        monthly_cost: 0  # PENDIENTE: verificar precio MXN en revolut.com/es-MX/plans
+        tiers:
+          - limit: 25_000   # límite a la tasa máxima — PENDIENTE confirmar
+            rate: 0.15
+          - limit: .inf
+            rate: 0.075     # excedente al mismo rate que Premium — PENDIENTE confirmar
+
+  # ── MIFEL ────────────────────────────────────────────────────────────────────
+  # Fuente: pendiente URL T&C (503/403 en mifel.com.mx/terminos)
+  # "Banco Mifel S.A." — cobertura IPAB. Tasas T&C PDF Jun 2026.
   - name: Mifel
     institution_type: banco
-    # source_url: https://mifel.com.mx/terminos  # pendiente verificar URL exacta (503/403)
     tiers:
       - limit: 99.99      # saldo < $100 no genera rendimiento
         rate: 0.0
-      - limit: 500_000    # 10% hasta $500k — T&C PDF Jun 2026
+      - limit: 500_000    # 10% hasta $500k
         rate: 0.10
       - limit: .inf
         rate: 0.0001      # 0.01% sobre $500k

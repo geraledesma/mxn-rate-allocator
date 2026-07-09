@@ -30,6 +30,7 @@ from rate_allocator.adapters.db_loader import (
 from rate_allocator.adapters.regulatory_loader import load_regulatory_rules_from_yaml
 from rate_allocator.adapters.yaml_loader import load_institutions_from_yaml
 from rate_allocator.domain.models import Constraint, Institution, Tier
+from tests.conftest import mk_inst
 from rate_allocator.persistence import (
     create_db_engine,
     init_schema,
@@ -145,9 +146,9 @@ class TestSingleRateChangeDiff:
                     constraints=first.constraints,
                 )
                 revised.append(
-                    Institution(
-                        name=inst.name,
-                        tiers=(revised_first, *inst.tiers[1:]),
+                    mk_inst(
+                        inst.name,
+                        (revised_first, *inst.tiers[1:]),
                         institution_type=inst.institution_type,
                         protection_limit=inst.protection_limit,
                     )
@@ -182,8 +183,8 @@ class TestTimeTravel:
                 session, institutions, source="yaml:test", now=t0
             )
 
-        new_inst = Institution(
-            name="Nu",
+        new_inst = mk_inst(
+            "Nu",
             tiers=(
                 Tier(
                     limit=25_000,
@@ -338,9 +339,9 @@ class TestChangeBatchAudit:
         for i, inst in enumerate(revised):
             if inst.name == "Nu":
                 first = inst.tiers[0]
-                revised[i] = Institution(
-                    name=inst.name,
-                    tiers=(
+                revised[i] = mk_inst(
+                    inst.name,
+                    (
                         Tier(
                             limit=first.limit,
                             rate=first.rate + 0.005,
@@ -379,9 +380,9 @@ class TestTierRateHistory:
             if inst.name == "Nu":
                 first = inst.tiers[0]
                 revised.append(
-                    Institution(
-                        name=inst.name,
-                        tiers=(
+                    mk_inst(
+                        inst.name,
+                        (
                             Tier(
                                 limit=first.limit,
                                 rate=first.rate + 0.01,

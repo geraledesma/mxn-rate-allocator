@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 
-from rate_allocator.domain.models import Constraint, Institution, Tier
+from rate_allocator.domain.models import Constraint, Institution, Plan, Tier
 
 
 def load_institutions_from_yaml(path: str | Path) -> list[Institution]:
@@ -33,14 +33,48 @@ def _parse_institution(
     institution_data: dict,
     institution_active_overrides: list[str] | None,
 ) -> Institution:
+    name = institution_data["name"]
+
+    if "plans" in institution_data:
+        plans = tuple(
+            _parse_plan(plan_data, name, institution_active_overrides)
+            for plan_data in institution_data["plans"]
+        )
+    else:
+        # Shorthand: tiers at institution level → single base plan
+        plans = (
+            Plan(
+                plan_key="base",
+                display_name=name,
+                monthly_cost=float(institution_data.get("monthly_cost", 0.0)),
+                tiers=tuple(
+                    _parse_tier(t, institution_active_overrides)
+                    for t in institution_data["tiers"]
+                ),
+            ),
+        )
+
     return Institution(
-        name=institution_data["name"],
-        tiers=tuple(
-            _parse_tier(tier_data, institution_active_overrides)
-            for tier_data in institution_data["tiers"]
-        ),
+        name=name,
+        plans=plans,
         institution_type=institution_data.get("institution_type", "none"),
         protection_limit=institution_data.get("protection_limit"),
+    )
+
+
+def _parse_plan(
+    plan_data: dict,
+    institution_name: str,
+    institution_active_overrides: list[str] | None,
+) -> Plan:
+    return Plan(
+        plan_key=plan_data["plan_key"],
+        display_name=plan_data.get("display_name", institution_name),
+        monthly_cost=float(plan_data.get("monthly_cost", 0.0)),
+        tiers=tuple(
+            _parse_tier(t, institution_active_overrides)
+            for t in plan_data["tiers"]
+        ),
     )
 
 
