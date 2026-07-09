@@ -17,9 +17,9 @@ entries:
     effective_from: "2026-03-10"
     source: "Email oficial OpenBank — 'Subimos el rendimiento de tu Apartado Open', mar 2026"
     descripcion: >
-      Apartado Open subió de tasa plana de 9% a esquema escalonado:
-      13% en los primeros $40,000 MXN, 7.30% de $40,001 a $1,000,000,
-      y 7.00% a partir de $1,000,000.
+      Efectivo el 10 de marzo de 2026, OpenBank sube el rendimiento de su Apartado Open
+      de una tasa plana de 9% a un esquema escalonado: 13% en los primeros $40,000 MXN,
+      7.30% de $40,001 a $1,000,000, y 7.00% a partir de $1,000,000.
     cambios:
       - tier: 1
         old_rate: 0.09
@@ -35,9 +35,23 @@ entries:
     effective_from: "2026-05-07"
     source: "Email oficial Banco Plata — 'Actualización de tasas de Ahorro Flexible y Fijo', may 2026"
     descripcion: >
-      Plata reduce la tasa de Ahorro Flexible con membresía Plata+
-      a 10% anual (GAT nominal 10.47%). Las tasas sin membresía no cambian.
+      Efectivo el 7 de mayo de 2026, Plata baja la tasa de su Ahorro Flexible
+      con membresía Plata+ de 12% a 10% anual. Las tasas sin membresía no cambian.
     cambios:
       - tier: 1
         old_rate: 0.12
         new_rate: 0.10
+
+  - institution: Revolut
+    effective_from: "2026-07-23"
+    source: "Xataka MX — 'Revolut cambia sus reglas en México y esto deberás hacer para mantener el 15% de rendimiento', jul 2026 / help.revolut.com/es-MX"
+    descripcion: >
+      Efectivo el 23 de julio de 2026, Revolut cambia las condiciones de acceso
+      a su Rendimiento Diario de 15% para plan Estándar: se requiere agregar
+      la tarjeta a Apple Pay o Google Pay y realizar 4 compras de $50 MXN o más
+      al mes. Sin cumplir los requisitos, la tasa baja a 7%.
+      Los planes Premium y Metal conservan el 15% solo con membresía activa.
+    cambios:
+      - tier: 1
+        old_rate: 0.15
+        new_rate: 0.07
