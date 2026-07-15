@@ -41,7 +41,7 @@ STATIC_DIR = WEB_DIR / "static"
 
 TOTAL_MIN = 1_000
 TOTAL_MAX = 9_900_000
-FREE_TOTAL_MAX = 250_000  # UI cap for free tier (decisions.md #13)
+FREE_TOTAL_MAX = 1_000_000  # UI cap — raised to 1M for beta (decisions.md #13)
 HORIZON_MIN = 0.25
 HORIZON_MAX = 5.0
 
