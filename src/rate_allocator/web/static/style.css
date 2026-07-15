@@ -1945,6 +1945,8 @@ html { background: var(--bg); }
   to   { transform: translateX(-50%); }
 }
 
+.ticker-band:hover .ticker-track { animation-play-state: paused; }
+
 @media (prefers-reduced-motion: reduce) {
   .ticker-track { animation: none; }
 }
