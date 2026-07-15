@@ -183,7 +183,6 @@
     (function () {
       const track = document.querySelector('.ticker-track');
       if (!track || !track.animate) return;
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       function startTicker() {
         var half = track.offsetWidth / 2;
         if (half <= 0) return;
