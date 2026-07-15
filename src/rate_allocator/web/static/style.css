@@ -1911,6 +1911,7 @@ html { background: var(--bg); }
   display: flex;
   width: max-content;
   animation: ticker-scroll 35s linear infinite;
+  will-change: transform;
 }
 
 .ticker-item {
@@ -1941,8 +1942,8 @@ html { background: var(--bg); }
 }
 
 @keyframes ticker-scroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
 }
 
 .ticker-band:hover .ticker-track { animation-play-state: paused; }
