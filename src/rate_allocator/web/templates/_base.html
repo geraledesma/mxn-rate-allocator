@@ -49,7 +49,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=2">
   <script>
     // A/B warm-accent variant: rosa elevada is the default; ?v=marigold switches
     // to the marigold test variant (persists for the session). ?v=rosa resets.
@@ -179,6 +179,25 @@
         const open = links.classList.toggle('open');
         btn.setAttribute('aria-expanded', open ? 'true' : 'false');
       });
+    })();
+    (function () {
+      const track = document.querySelector('.ticker-track');
+      if (!track || !track.animate) return;
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      if (mq.matches) return;
+      function startTicker() {
+        const half = track.scrollWidth / 2;
+        if (half <= 0) return;
+        track.style.animation = 'none';
+        track.animate(
+          [{ transform: 'translate3d(0,0,0)' }, { transform: `translate3d(-${half}px,0,0)` }],
+          { duration: 35000, iterations: Infinity, easing: 'linear' }
+        );
+        track.closest('.ticker-band').addEventListener('mouseenter', () => track.getAnimations().forEach(a => a.pause()));
+        track.closest('.ticker-band').addEventListener('mouseleave', () => track.getAnimations().forEach(a => a.play()));
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startTicker);
+      else startTicker();
     })();
   </script>
   {% block extra_scripts %}{% endblock %}
