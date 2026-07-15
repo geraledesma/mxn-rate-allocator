@@ -6,6 +6,7 @@ import os
 from dataclasses import replace
 from datetime import date, datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
@@ -56,6 +57,8 @@ _MONTHS_ES = [
     "enero", "febrero", "marzo", "abril", "mayo", "junio",
     "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 ]
+
+_MEXICO_TZ = ZoneInfo("America/Mexico_City")
 
 
 # ── data loading ─────────────────────────────────────────────────────────────
@@ -351,7 +354,7 @@ def _page_context(request: Request, extra: dict | None = None) -> dict:
     institutions, _, ts = _load_snapshot_raw()
     ctx = {
         "request": request,
-        "ultima_actualizacion": _date_es(ts.astimezone(timezone.utc).date()),
+        "ultima_actualizacion": _date_es(ts.astimezone(_MEXICO_TZ).date()),
         "anio_actual": datetime.now(timezone.utc).year,
         "ticker_items": _ticker_items(institutions),
     }
@@ -452,7 +455,7 @@ async def get_instituciones() -> JSONResponse:
     institutions_sorted = sorted(institutions, key=_best_rate, reverse=True)
     payload = {
         "instituciones": [_institucion_payload(i, rules) for i in institutions_sorted],
-        "ultima_actualizacion": _date_es(ts.astimezone(timezone.utc).date()),
+        "ultima_actualizacion": _date_es(ts.astimezone(_MEXICO_TZ).date()),
     }
     return JSONResponse(payload)
 
@@ -468,7 +471,7 @@ async def get_instituciones_v2() -> JSONResponse:
     raw_sorted = sorted(raw, key=_best_rate_raw, reverse=True)
     return JSONResponse({
         "instituciones": [_v2_institution_payload(i, rules) for i in raw_sorted],
-        "ultima_actualizacion": _date_es(ts.astimezone(timezone.utc).date()),
+        "ultima_actualizacion": _date_es(ts.astimezone(_MEXICO_TZ).date()),
     })
 
 

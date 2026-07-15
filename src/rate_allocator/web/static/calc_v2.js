@@ -176,10 +176,15 @@
 
   // ── Step 2 — Institutions + Plans ────────────────────────────────────────
 
-  // Compound key for the best plan of an institution
+  // Best plan: highest rate; on tie, lowest monthly cost (avoid recommending paid plans unnecessarily).
+  function bestPlanAmong(planes) {
+    const maxRate = Math.max(...planes.map(p => p.tasa_max));
+    const tied = planes.filter(p => Math.abs(p.tasa_max - maxRate) < 1e-9);
+    return tied.reduce((a, b) => b.costo_mensual < a.costo_mensual ? b : a);
+  }
+
   function bestPlanKey(inst) {
-    const best = inst.planes.reduce((a, b) => b.tasa_max > a.tasa_max ? b : a);
-    return `${inst.nombre}::${best.plan_key}`;
+    return `${inst.nombre}::${bestPlanAmong(inst.planes).plan_key}`;
   }
 
   async function loadInstitutions() {
@@ -341,7 +346,7 @@
 
       // Multi-plan institution: parent checkbox + collapsible plan options
       const instSelected = Array.from(state.selected).some(ck => ck.startsWith(inst.nombre + '::'));
-      const bestPlan = inst.planes.reduce((a, b) => b.tasa_max > a.tasa_max ? b : a);
+      const bestPlan = bestPlanAmong(inst.planes);
 
       const sortedPlanes = [...inst.planes].sort((a, b) => {
         const rDiff = b.tasa_max - a.tasa_max;
@@ -456,7 +461,7 @@
           });
         } else {
           const inst = state.institutions.find(i => i.nombre === group);
-          const best = inst.planes.reduce((a, b) => b.tasa_max > a.tasa_max ? b : a);
+          const best = bestPlanAmong(inst.planes);
           state.selected.add(`${group}::${best.plan_key}`);
           parent.classList.add('is-active');
           parent.setAttribute('aria-checked', 'true');

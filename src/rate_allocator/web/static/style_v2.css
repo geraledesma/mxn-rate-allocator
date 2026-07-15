@@ -7,6 +7,9 @@
 /* Ensure [hidden] attribute always wins over author display rules */
 [hidden] { display: none !important; }
 
+/* Warning token for text — darker than --warning icon color to meet WCAG AA 4.5:1 */
+:root { --warning-text: #7a4800; }
+
 /* ── Shell ─────────────────────────────────────────────────────────────────── */
 
 .wiz-shell {
@@ -461,7 +464,7 @@
 .inst-cond-ok { color: var(--primary); }
 
 .inst-cond-warn {
-  color: var(--warning);
+  color: var(--warning-text);
   background: var(--warning-bg);
   padding: 0.2rem 0.5rem;
   border-radius: 5px;
@@ -612,7 +615,7 @@
 
 .plan-opt-cond-ok  { color: var(--primary); }
 .plan-opt-cond-warn {
-  color: var(--warning);
+  color: var(--warning-text);
   font-weight: 500;
 }
 
