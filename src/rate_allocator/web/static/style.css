@@ -1909,6 +1909,7 @@ html { background: var(--bg); }
 
 .ticker-track {
   display: flex;
+  flex-shrink: 0;
   width: max-content;
   animation: ticker-scroll 35s linear infinite;
   will-change: transform;
