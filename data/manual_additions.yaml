@@ -39,13 +39,13 @@ institutions:
                 active: true
 
   # ── KLAR ─────────────────────────────────────────────────────────────────────
-  # Fuente: https://www.klar.mx/inversion + deceroalinfinito.com (jul 2026)
+  # Fuente: https://www.klar.mx/inversion (jul 2026)
   # "Klar México, S.A. de C.V., Sociedad Financiera Popular" (CNBV) — cobertura Prosofipo.
-  # Tasas nominales (decero ✓):
+  # Tasas nominales a la vista (cuenta líquida):
   #   Light (sin suscripción): 3.0% — sin costo mensual
   #   Plus (suscripción): 5.0% — costo mensual PENDIENTE verificar klar.mx
-  #   Platino: 8.5% — tasas.mx confirmó 8.5% para planes de pago; desagregación PENDIENTE
-  # tasas.mx mostraba 8.5% agrupado (Plus+Platino) — removido del auto-scrape.
+  #   Platino (suscripción): 5.0% — costo mensual PENDIENTE verificar klar.mx
+  # Nota: tasas.mx mostraba 8.5% agrupado — era tasa para plazo fijo, no a la vista.
   - name: Klar
     institution_type: sofipo
     plans:
@@ -68,7 +68,7 @@ institutions:
         monthly_cost: 0  # PENDIENTE: verificar precio en klar.mx
         tiers:
           - limit: .inf
-            rate: 0.085  # tasas.mx 8.5% — verificar si aplica solo a Platino o también Plus
+            rate: 0.05
 
   # ── UALA ─────────────────────────────────────────────────────────────────────
   # Fuente: https://www.uala.mx/tyc-uala-cuenta-con-rendimiento-plus (T&C V9)
@@ -128,14 +128,14 @@ institutions:
         rate: 0.04  # PENDIENTE — estimado no confirmado
 
   # ── REVOLUT ──────────────────────────────────────────────────────────────────
-  # Fuente: https://www.revolut.com/es-MX/ + T&C Revolut MX (jul 2026)
-  # "Revolut Advanced Payments" (CNBV) — cobertura IPAB.
-  # tasas.mx mostraba 15% agrupado sin desagregar por plan — removido del auto-scrape.
-  # Costos de membresía PENDIENTE verificar en revolut.com/es-MX/plans:
-  #   Standard (gratis):  ~5% sin límite
-  #   Premium  (~$199/mes): ~7.5% sin límite  — PENDIENTE confirmar tasa y costo MXN
-  #   Metal    (~$349/mes): ~15% hasta $25k   — PENDIENTE confirmar tasa, costo y límite
-  # Fuente de tasas: scraped_live.yaml histórico (tiers 5%/7.5%/15%); pendiente T&C PDF.
+  # Fuente T&C: https://cdn.revolut.com/terms_and_conditions/pdf/t_rminos_y_condiciones_de_promociones_en_rendimientos_diarios_72a96081_3.0.0_1782166917_es.pdf
+  # "Revolut Bank, S.A., Institución de Banca Múltiple" — cobertura IPAB hasta 400,000 UDIs.
+  # Vigencia: 23 jun 2026 (clientes nuevos) / 23 jul 2026 (clientes existentes).
+  # Estructura escalonada 3 tramos: $0–$25k / $25k–$1M / $1M+
+  # Todos los planes pagan 15% en el primer tramo ($0.01–$25,000 MXN).
+  # Plan Estándar: el 15% es CONDICIONAL — requiere 4 txns ≥$50 + wallet digital c/30 días (T&C §1).
+  # Planes Premium y Metal: el 15% es automático por tener el plan.
+  # Costos: Premium $1,788/año + IVA ($172.84/mes) | Metal $4,188/año + IVA ($404.84/mes).
   - name: Revolut
     institution_type: banco
     plans:
@@ -143,24 +143,44 @@ institutions:
         display_name: Revolut Standard
         monthly_cost: 0
         tiers:
+          - limit: 25_000
+            rate: 0.15
+            constraints:
+              - type: transaction_count   # 4 compras ≥$50 c/u con tarjeta Revolut en 30 días
+                min_transactions: 4
+                min_amount_per_transaction: 50.0
+                period_days: 30
+                benefit: promo_15_rate
+                active: true
+              - type: digital_wallet      # tarjeta Revolut agregada en Google Wallet o Apple Pay
+                benefit: promo_15_rate
+                active: true
+          - limit: 1_000_000
+            rate: 0.07
           - limit: .inf
-            rate: 0.05
+            rate: 0.045
 
       - plan_key: premium
         display_name: Revolut Premium
-        monthly_cost: 0  # PENDIENTE: verificar precio MXN en revolut.com/es-MX/plans
+        monthly_cost: 172.84  # $1,788/año + IVA 16% / 12
         tiers:
+          - limit: 25_000
+            rate: 0.15
+          - limit: 1_000_000
+            rate: 0.073
           - limit: .inf
-            rate: 0.075  # PENDIENTE: confirmar vs T&C
+            rate: 0.048
 
       - plan_key: metal
         display_name: Revolut Metal
-        monthly_cost: 0  # PENDIENTE: verificar precio MXN en revolut.com/es-MX/plans
+        monthly_cost: 404.84  # $4,188/año + IVA 16% / 12
         tiers:
-          - limit: 25_000   # límite a la tasa máxima — PENDIENTE confirmar
+          - limit: 25_000
             rate: 0.15
+          - limit: 1_000_000
+            rate: 0.075
           - limit: .inf
-            rate: 0.075     # excedente al mismo rate que Premium — PENDIENTE confirmar
+            rate: 0.05
 
   # ── MIFEL ────────────────────────────────────────────────────────────────────
   # Fuente: pendiente URL T&C (503/403 en mifel.com.mx/terminos)
