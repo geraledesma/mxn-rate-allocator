@@ -1902,14 +1902,13 @@ html { background: var(--bg); }
   background: var(--bg-soft);
   border-bottom: 1px solid var(--line);
   height: 28px;
-  display: flex;
-  align-items: center;
   user-select: none;
 }
 
 .ticker-track {
   display: flex;
-  flex-shrink: 0;
+  align-items: center;
+  height: 28px;
   width: max-content;
   animation: ticker-scroll 35s linear infinite;
   will-change: transform;
