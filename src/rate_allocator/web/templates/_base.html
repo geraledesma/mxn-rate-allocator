@@ -92,6 +92,27 @@
     </div>
   </header>
 
+  {% if ticker_items %}
+  <div class="ticker-band" aria-hidden="true" role="presentation">
+    <div class="ticker-track">
+      {% for item in ticker_items %}
+      <span class="ticker-item">
+        <span class="ticker-name">{{ item.nombre }}</span>
+        <span class="ticker-rate">{{ item.tasa_label }}</span>
+        {% if item.has_condicion %}<span class="ticker-cond">⚠</span>{% endif %}
+      </span>
+      {% endfor %}
+      {% for item in ticker_items %}
+      <span class="ticker-item" aria-hidden="true">
+        <span class="ticker-name">{{ item.nombre }}</span>
+        <span class="ticker-rate">{{ item.tasa_label }}</span>
+        {% if item.has_condicion %}<span class="ticker-cond">⚠</span>{% endif %}
+      </span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <main id="contenido">
     {% block content %}{% endblock %}
   </main>

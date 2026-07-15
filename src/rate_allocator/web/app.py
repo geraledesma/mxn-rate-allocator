@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -28,8 +29,8 @@ DB_URL_ENV = "RATE_ALLOCATOR_DB_URL"
 
 # Sole benchmark: CETES 28 días, the risk-free reference of Mexican saving.
 # Curated manually like institution rates; update alongside them.
-# Last set 2026-06-12 (verify at banxico.org.mx).
-CETES_28_RATE = 0.0625
+# Last set 2026-07-14 (verify at banxico.org.mx).
+CETES_28_RATE = 0.062
 _PERIODS_PER_YEAR = 365
 NOTICIAS_LIMIT = 30
 
@@ -39,10 +40,17 @@ STATIC_DIR = WEB_DIR / "static"
 
 TOTAL_MIN = 1_000
 TOTAL_MAX = 9_900_000
+FREE_TOTAL_MAX = 250_000  # UI cap for free tier (decisions.md #13)
 HORIZON_MIN = 0.25
 HORIZON_MAX = 5.0
 
-TIPO_LABEL = {"sofipo": "SOFIPO", "banco": "Banco", "none": "Fintech / Gob."}
+TIPO_LABEL = {"sofipo": "SOFIPO", "banco": "Banco", "gobierno": "Gobierno", "none": "Fintech / Gob."}
+
+# Institutions excluded from the public calculator universe.
+_EXCLUDED_INSTITUTIONS: frozenset[str] = frozenset({"BONDDIA"})
+
+# Override institution_type after loading (avoids re-seeding the DB for metadata changes).
+_INSTITUTION_TYPE_OVERRIDES: dict[str, str] = {"Cetes": "gobierno"}
 
 _MONTHS_ES = [
     "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -76,6 +84,18 @@ def _try_load_db_snapshot() -> tuple[list[Institution], RegulatoryRules | None, 
         return None
 
 
+def _apply_universe_rules(insts: list[Institution]) -> list[Institution]:
+    """Exclude blacklisted institutions and apply institution_type overrides."""
+    out = []
+    for inst in insts:
+        if inst.name in _EXCLUDED_INSTITUTIONS:
+            continue
+        if inst.name in _INSTITUTION_TYPE_OVERRIDES:
+            inst = replace(inst, institution_type=_INSTITUTION_TYPE_OVERRIDES[inst.name])
+        out.append(inst)
+    return out
+
+
 def _load_snapshot_raw() -> tuple[list[Institution], RegulatoryRules, datetime]:
     """Load institutions with full multi-plan structure (for v2 API)."""
     snapshot = _try_load_db_snapshot()
@@ -83,10 +103,10 @@ def _load_snapshot_raw() -> tuple[list[Institution], RegulatoryRules, datetime]:
     if snapshot:
         insts, rules, ts = snapshot
         if insts:
-            return insts, rules or fallback_rules, ts
+            return _apply_universe_rules(insts), rules or fallback_rules, ts
     insts = load_institutions_with_overrides(str(DATA_FILE), {})
     mtime = datetime.fromtimestamp(DATA_FILE.stat().st_mtime, tz=timezone.utc)
-    return insts, fallback_rules, mtime
+    return _apply_universe_rules(insts), fallback_rules, mtime
 
 
 def _load_snapshot() -> tuple[list[Institution], RegulatoryRules, datetime]:
@@ -115,14 +135,21 @@ def _coverage_label(inst: Institution, rules: RegulatoryRules) -> str:
     return "Sin cobertura aplicable"
 
 
+def _cost_iva_label(cost_with_iva: float) -> str:
+    return f"${round(cost_with_iva / 1.16):,}+IVA/mes"
+
+
 def _constraint_text(inst: Institution) -> tuple[str, bool]:
     texts: list[str] = []
+    monthly_cost = inst.plans[0].monthly_cost if inst.plans else 0.0
+    if monthly_cost > 0:
+        texts.append(f"Membresía {_cost_iva_label(monthly_cost)}")
     for tier in inst.tiers:
         for c in tier.constraints:
             if not c.active:
                 continue
             if c.benefit == "membership_plan":
-                texts.append(f"Membresía ${c.cost:,.0f}/mes")
+                pass  # covered by plan.monthly_cost above
             elif c.benefit == "high_rate_tier" and c.cost <= 10:
                 texts.append("1 compra al mes")
             elif c.benefit == "high_rate_tier" and c.cost > 10:
@@ -178,12 +205,14 @@ def _v2_plan_payload(plan: Plan, inst: Institution, rules: RegulatoryRules) -> d
     limite_label = "" if best_tier.limit == float("inf") else f"hasta ${best_tier.limit:,.0f}"
 
     texts: list[str] = []
+    if plan.monthly_cost > 0:
+        texts.append(f"Membresía {_cost_iva_label(plan.monthly_cost)}")
     for tier in tiers:
         for c in tier.constraints:
             if not c.active:
                 continue
             if c.benefit == "membership_plan":
-                texts.append(f"Membresía ${c.cost:,.0f}/mes")
+                pass  # covered by plan.monthly_cost above
             elif c.benefit == "high_rate_tier" and c.cost <= 10:
                 texts.append("1 compra al mes")
             elif c.benefit == "high_rate_tier" and c.cost > 10:
@@ -203,6 +232,7 @@ def _v2_plan_payload(plan: Plan, inst: Institution, rules: RegulatoryRules) -> d
         "costo_mensual": float(plan.monthly_cost),
         "tasa_max": float(best),
         "tasa_max_label": f"{best:.0%}",
+        "tasa_max_limite": None if best_tier.limit == float("inf") else float(best_tier.limit),
         "tasa_max_limite_label": limite_label,
         "tramos": tramos,
         "condicion": " · ".join(texts) if texts else "Sin condición",
@@ -247,6 +277,22 @@ def _fmt_mxn(amount: float) -> str:
 
 def _date_es(d: date) -> str:
     return f"{d.day} de {_MONTHS_ES[d.month - 1]} de {d.year}"
+
+
+def _ticker_items(institutions: list) -> list[dict]:
+    rows = []
+    for inst in institutions:
+        best_rate = max(max(t.rate for t in p.tiers) for p in inst.plans)
+        if best_rate <= 0:
+            continue
+        best_plan = max(inst.plans, key=lambda p: max(t.rate for t in p.tiers))
+        has_cond = any(c.active for tier in best_plan.tiers for c in tier.constraints)
+        rows.append((best_rate, inst.name, has_cond))
+    rows.sort(reverse=True)
+    return [
+        {"nombre": name, "tasa_label": f"{rate:.1%}", "has_condicion": has_cond}
+        for rate, name, has_cond in rows
+    ]
 
 
 def _to_date(dt: datetime) -> date:
@@ -302,11 +348,12 @@ class AllocateV2Request(BaseModel):
 
 
 def _page_context(request: Request, extra: dict | None = None) -> dict:
-    _, _, ts = _load_snapshot()
+    institutions, _, ts = _load_snapshot_raw()
     ctx = {
         "request": request,
         "ultima_actualizacion": _date_es(ts.astimezone(timezone.utc).date()),
         "anio_actual": datetime.now(timezone.utc).year,
+        "ticker_items": _ticker_items(institutions),
     }
     if extra:
         ctx.update(extra)
@@ -320,7 +367,7 @@ async def index(request: Request) -> HTMLResponse:
         "index.html",
         _page_context(request, {
             "monto_min": TOTAL_MIN,
-            "monto_max": 3_000_000,
+            "monto_max": FREE_TOTAL_MAX,
             "monto_default": 100_000,
         }),
     )
@@ -334,7 +381,7 @@ async def index_v2(request: Request) -> HTMLResponse:
         "index_v2.html",
         _page_context(request, {
             "monto_min": TOTAL_MIN,
-            "monto_max": 3_000_000,
+            "monto_max": FREE_TOTAL_MAX,
             "monto_default": 100_000,
         }),
     )
@@ -562,7 +609,7 @@ async def post_allocate_v2(body: AllocateV2Request) -> JSONResponse:
             "tasa_promedio": float(inst_interest / total_inst) if total_inst > 0 else 0.0,
             "tasa_promedio_label": f"{(inst_interest / total_inst):.2%}" if total_inst > 0 else "0%",
         })
-        chart_labels.append(ck)
+        chart_labels.append(inst.name)
         chart_montos.append(float(total_inst))
         chart_tasas.append(float(inst_interest / total_inst) if total_inst > 0 else 0.0)
 

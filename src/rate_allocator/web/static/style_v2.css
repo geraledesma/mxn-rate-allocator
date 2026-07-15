@@ -393,7 +393,8 @@
   justify-content: center;
 }
 
-.inst-card-v2.is-active .inst-check-v2 {
+.inst-card-v2.is-active .inst-check-v2,
+.inst-group-parent-v2.is-active .inst-check-v2 {
   border-color: var(--primary);
   background: var(--primary);
 }
@@ -409,7 +410,8 @@
   transform: rotate(42deg) translate(0px, -1px);
 }
 
-.inst-card-v2.is-active .inst-check-v2::after { display: block; }
+.inst-card-v2.is-active .inst-check-v2::after,
+.inst-group-parent-v2.is-active .inst-check-v2::after { display: block; }
 
 .inst-card-body { flex: 1; min-width: 0; }
 
@@ -487,28 +489,48 @@
   border: 2px solid var(--line);
   border-radius: var(--radius-sm);
   overflow: hidden;
+  transition: border-color 0.15s;
 }
 
-.inst-group-header-v2 {
+.inst-group-v2.is-active { border-color: var(--primary); }
+
+/* Parent row — same look as inst-card-v2 but border comes from inst-group-v2 */
+.inst-group-parent-v2 {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  padding: 0.75rem 1rem 0.5rem;
-  background: var(--surface-raised, var(--surface));
-  border-bottom: 1px solid var(--line);
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: var(--surface);
+  cursor: pointer;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.inst-coverage-v2 {
-  margin-left: auto;
-  font-size: 0.75rem;
+.inst-group-parent-v2.is-active { background: var(--primary-bg); }
+
+.inst-group-parent-v2:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: -3px;
+}
+
+.inst-plans-hint {
+  font-size: 0.8125rem;
   color: var(--ink-mute);
   font-weight: 500;
 }
 
+/* Collapsible plans panel */
 .inst-plans-v2 {
   display: flex;
   flex-direction: column;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+
+.inst-plans-v2.is-open {
+  max-height: 400px;
+  border-top: 1px solid var(--line);
 }
 
 .plan-opt-v2 {
@@ -759,25 +781,54 @@
   font-weight: 800;
   font-size: 0.9375rem;
   color: var(--ink);
-  margin: 0 0 0.125rem;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 0.4rem;
   flex-wrap: wrap;
 }
 
+.plan-card-plan-label {
+  font-weight: 500;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
 .plan-card-action-v2 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.8rem;
   color: var(--ink-soft);
+  padding: 0.625rem 1rem;
+  border-top: 1px solid var(--line);
+  background: var(--bg-soft);
+  border-radius: 0 0 var(--radius) var(--radius);
   margin: 0;
 }
 
 .plan-card-amount-v2 {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  flex-shrink: 0;
+}
+
+.plan-card-verb {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.plan-card-amount-v2 > span:last-child {
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 1.0625rem;
   color: var(--primary);
-  flex-shrink: 0;
 }
 
 .plan-card-body-v2 {
@@ -899,21 +950,23 @@
   margin: 0 0 0.875rem;
 }
 
-/* Affiliate link inline in plan card header (replaces static action text) */
+/* Affiliate CTA at the bottom of each plan card */
 .plan-card-action-link {
-  display: inline-block;
-  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--primary);
   text-decoration: none;
-  border-bottom: 1px solid var(--primary-soft);
-  padding-bottom: 1px;
-  transition: border-color .15s;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--primary-soft);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border-radius: 0 0 var(--radius) var(--radius);
+  transition: background .15s;
   min-height: 44px;
-  display: inline-flex;
-  align-items: center;
 }
-.plan-card-action-link:hover { border-color: var(--primary); }
+.plan-card-action-link:hover { background: color-mix(in srgb, var(--primary) 14%, transparent); }
 
 /* ── Stagger reveal for results ─────────────────────────────────────────────── */
 

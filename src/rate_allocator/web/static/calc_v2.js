@@ -200,23 +200,47 @@
   function updateChipAll() {
     const total = state.institutions.length;
     const chip = document.querySelector('.count-chip[data-count="all"]');
-    if (chip) chip.textContent = `Todas (${total})`;
+    if (chip) chip.textContent = 'Todas';
     document.querySelectorAll('.count-chip[data-count]').forEach((c) => {
       const n = Number(c.dataset.count);
       if (!isNaN(n)) c.hidden = n > total;
     });
   }
 
-  // Select the best plan of the top N institutions (by best plan rate).
+  // Best rate across all plans of an institution.
+  function instBestRate(inst) {
+    return Math.max(...inst.planes.map(p => p.tasa_max));
+  }
+
+  // Deposit limit of the best-rate plan (null = no limit = Infinity).
+  function instBestLimit(inst) {
+    const rate = instBestRate(inst);
+    const lims = inst.planes
+      .filter(p => p.tasa_max === rate)
+      .map(p => p.tasa_max_limite ?? Infinity);
+    return Math.max(...lims);
+  }
+
+  // Select top N institutions ranked by: 1) highest rate, 2) highest deposit limit.
   function applyCountMode(mode) {
     state.countMode = mode;
     const total = state.institutions.length;
 
     state.selected.clear();
-    const limit = (mode === 'all') ? total : Math.min(Number(mode), total);
-    state.institutions.slice(0, limit).forEach((inst) => {
-      state.selected.add(bestPlanKey(inst));
+    const n = (mode === 'all') ? total : Math.min(Number(mode), total);
+
+    const ranked = [...state.institutions].sort((a, b) => {
+      const rDiff = instBestRate(b) - instBestRate(a);
+      if (Math.abs(rDiff) > 1e-9) return rDiff;
+      const lA = instBestLimit(a);
+      const lB = instBestLimit(b);
+      if (!isFinite(lB) && !isFinite(lA)) return 0;
+      if (!isFinite(lB)) return -1;
+      if (!isFinite(lA)) return 1;
+      return lB - lA;
     });
+
+    ranked.slice(0, n).forEach(inst => state.selected.add(bestPlanKey(inst)));
 
     document.querySelectorAll('.count-chip').forEach((c) => {
       const isActive = String(c.dataset.count) === String(mode);
@@ -227,10 +251,9 @@
     if (mode === 'all') {
       els.countHint.textContent = `Incluye todas las instituciones disponibles.`;
     } else {
-      const n = Math.min(Number(mode), total);
       els.countHint.textContent = n === 1
-        ? 'Solo la institución con mayor tasa.'
-        : `Las ${n} instituciones con mayor tasa.`;
+        ? 'La institución con mayor tasa y mayor monto disponible.'
+        : `Las ${n} mejores por tasa y, en empate, por mayor monto disponible.`;
     }
 
     renderInstList();
@@ -246,8 +269,9 @@
   });
 
   function tagFor(tipo) {
-    if (tipo === 'sofipo') return '<span class="tag tag-sofipo">SOFIPO</span>';
-    if (tipo === 'banco')  return '<span class="tag tag-banco">Banco</span>';
+    if (tipo === 'sofipo')   return '<span class="tag tag-sofipo">SOFIPO</span>';
+    if (tipo === 'banco')    return '<span class="tag tag-banco">Banco</span>';
+    if (tipo === 'gobierno') return '<span class="tag tag-gobierno">Gobierno</span>';
     return '<span class="tag">Fintech</span>';
   }
 
@@ -269,7 +293,18 @@
   function renderInstList() {
     if (!state.institutions.length) return;
 
-    els.instList.innerHTML = state.institutions.map((inst) => {
+    const sorted = [...state.institutions].sort((a, b) => {
+      const rDiff = instBestRate(b) - instBestRate(a);
+      if (Math.abs(rDiff) > 1e-9) return rDiff;
+      const lA = instBestLimit(a);
+      const lB = instBestLimit(b);
+      if (!isFinite(lB) && !isFinite(lA)) return 0;
+      if (!isFinite(lB)) return -1;
+      if (!isFinite(lA)) return 1;
+      return lB - lA;
+    });
+
+    els.instList.innerHTML = sorted.map((inst) => {
       const isMultiPlan = inst.planes.length > 1;
 
       if (!isMultiPlan) {
@@ -304,28 +339,44 @@
         `;
       }
 
-      // Multi-plan institution: group card with nested plan options
-      const plansHtml = inst.planes.map((plan) => {
+      // Multi-plan institution: parent checkbox + collapsible plan options
+      const instSelected = Array.from(state.selected).some(ck => ck.startsWith(inst.nombre + '::'));
+      const bestPlan = inst.planes.reduce((a, b) => b.tasa_max > a.tasa_max ? b : a);
+
+      const sortedPlanes = [...inst.planes].sort((a, b) => {
+        const rDiff = b.tasa_max - a.tasa_max;
+        if (Math.abs(rDiff) > 1e-9) return rDiff;
+        const lA = a.tasa_max_limite ?? Infinity;
+        const lB = b.tasa_max_limite ?? Infinity;
+        if (!isFinite(lB) && !isFinite(lA)) return 0;
+        if (!isFinite(lB)) return -1;
+        if (!isFinite(lA)) return 1;
+        return lB - lA;
+      });
+
+      const plansHtml = sortedPlanes.map((plan) => {
         const ck = `${inst.nombre}::${plan.plan_key}`;
         const active = state.selected.has(ck);
         const condClass = plan.tiene_condicion ? 'plan-opt-cond-warn' : 'plan-opt-cond-ok';
         const condIcon  = plan.tiene_condicion ? '⚠️' : '✓';
-        const costLabel = plan.costo_mensual > 0 ? ` · $${Math.round(plan.costo_mensual)}/mes` : '';
         return `
           <div class="plan-opt-v2 ${active ? 'is-active' : ''}"
                data-key="${escapeAttr(ck)}"
                data-group="${escapeAttr(inst.nombre)}"
                role="radio"
                aria-checked="${active}"
-               tabindex="0">
+               tabindex="${instSelected ? '0' : '-1'}">
             <div class="plan-check-v2" aria-hidden="true"></div>
             <div class="plan-opt-body-v2">
               <div class="plan-opt-row-v2">
                 <span class="plan-opt-name-v2">${escapeHtml(plan.display_name)}</span>
-                <span class="plan-opt-rate-v2">${escapeHtml(plan.tasa_max_label)}</span>
+                <div class="inst-rate-group">
+                  <span class="plan-opt-rate-v2">${escapeHtml(plan.tasa_max_label)}</span>
+                  ${plan.tasa_max_limite_label ? `<span class="inst-rate-limit">${escapeHtml(plan.tasa_max_limite_label)}</span>` : ''}
+                </div>
               </div>
               <div class="plan-opt-cond-v2">
-                <span class="${condClass}">${condIcon} ${escapeHtml(plan.condicion)}${escapeHtml(costLabel)}</span>
+                <span class="${condClass}">${condIcon} ${escapeHtml(plan.condicion)}</span>
               </div>
             </div>
           </div>
@@ -333,13 +384,30 @@
       }).join('');
 
       return `
-        <div class="inst-group-v2">
-          <div class="inst-group-header-v2">
-            <span class="inst-name-v2">${escapeHtml(inst.nombre)}</span>
-            ${tagFor(inst.tipo)}
-            <span class="inst-coverage-v2">${escapeHtml(inst.cobertura_label)}</span>
+        <div class="inst-group-v2 ${instSelected ? 'is-active' : ''}">
+          <div class="inst-group-parent-v2 ${instSelected ? 'is-active' : ''}"
+               data-group="${escapeAttr(inst.nombre)}"
+               role="checkbox"
+               aria-checked="${instSelected}"
+               tabindex="0">
+            <div class="inst-check-v2" aria-hidden="true"></div>
+            <div class="inst-card-body">
+              <div class="inst-row-v2">
+                <span class="inst-name-v2">${escapeHtml(inst.nombre)}</span>
+                ${tagFor(inst.tipo)}
+                <div class="inst-rate-group">
+                  <span class="inst-rate-v2">${escapeHtml(bestPlan.tasa_max_label)}</span>
+                  ${bestPlan.tasa_max_limite_label ? `<span class="inst-rate-limit">${escapeHtml(bestPlan.tasa_max_limite_label)}</span>` : ''}
+                </div>
+              </div>
+              <div class="inst-cond-block">
+                <span class="inst-plans-hint">${inst.planes.length} planes disponibles</span>
+              </div>
+            </div>
           </div>
-          <div class="inst-plans-v2" role="radiogroup" aria-label="${escapeAttr(inst.nombre)} — elige plan">
+          <div class="inst-plans-v2 ${instSelected ? 'is-open' : ''}"
+               role="radiogroup"
+               aria-label="${escapeAttr(inst.nombre)} — elige plan">
             ${plansHtml}
           </div>
         </div>
@@ -365,29 +433,80 @@
       });
     });
 
-    // Wire up multi-plan options (radio behavior within group)
+    // Wire up multi-plan institution parents (checkbox — toggles institution on/off)
+    els.instList.querySelectorAll('.inst-group-parent-v2[data-group]').forEach((parent) => {
+      const handleParent = () => {
+        const group = parent.dataset.group;
+        const currently = Array.from(state.selected).some(ck => ck.startsWith(group + '::'));
+        const groupEl = parent.closest('.inst-group-v2');
+        const plansEl = parent.nextElementSibling;
+
+        if (currently) {
+          for (const ck of Array.from(state.selected)) {
+            if (ck.startsWith(group + '::')) state.selected.delete(ck);
+          }
+          parent.classList.remove('is-active');
+          parent.setAttribute('aria-checked', 'false');
+          groupEl.classList.remove('is-active');
+          plansEl.classList.remove('is-open');
+          plansEl.querySelectorAll('.plan-opt-v2').forEach(o => {
+            o.classList.remove('is-active');
+            o.setAttribute('aria-checked', 'false');
+            o.tabIndex = -1;
+          });
+        } else {
+          const inst = state.institutions.find(i => i.nombre === group);
+          const best = inst.planes.reduce((a, b) => b.tasa_max > a.tasa_max ? b : a);
+          state.selected.add(`${group}::${best.plan_key}`);
+          parent.classList.add('is-active');
+          parent.setAttribute('aria-checked', 'true');
+          groupEl.classList.add('is-active');
+          plansEl.classList.add('is-open');
+          plansEl.querySelectorAll('.plan-opt-v2').forEach(o => {
+            const active = state.selected.has(o.dataset.key);
+            o.classList.toggle('is-active', active);
+            o.setAttribute('aria-checked', String(active));
+            o.tabIndex = 0;
+          });
+        }
+
+        updateCondSummary();
+        updateStep2Cta();
+        clearChipSelection();
+      };
+      parent.addEventListener('click', handleParent);
+      parent.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); handleParent(); }
+      });
+    });
+
+    // Wire up multi-plan options (pure radio — selecting a plan never deselects the institution)
     els.instList.querySelectorAll('.plan-opt-v2').forEach((opt) => {
-      const toggle = () => {
-        const ck   = opt.dataset.key;
+      const handlePlan = () => {
+        const ck = opt.dataset.key;
         const group = opt.dataset.group;
-        const [instNombre, planKey] = ck.split('::');
+        const [instNombre] = ck.split('::');
 
-        togglePlan(instNombre, planKey);
+        if (state.selected.has(ck)) return; // already selected — no-op
 
-        // Update all options in the same group
+        for (const existing of Array.from(state.selected)) {
+          if (existing.startsWith(`${instNombre}::`)) state.selected.delete(existing);
+        }
+        state.selected.add(ck);
+
         els.instList.querySelectorAll(`.plan-opt-v2[data-group="${CSS.escape(group)}"]`).forEach((o) => {
           const active = state.selected.has(o.dataset.key);
           o.classList.toggle('is-active', active);
-          o.setAttribute('aria-checked', active);
+          o.setAttribute('aria-checked', String(active));
         });
 
         updateCondSummary();
         updateStep2Cta();
         clearChipSelection();
       };
-      opt.addEventListener('click', toggle);
+      opt.addEventListener('click', handlePlan);
       opt.addEventListener('keydown', (e) => {
-        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); }
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); handlePlan(); }
       });
     });
   }
@@ -593,6 +712,9 @@
 
       // Affiliate lookup by institution name (parsed from compound_key)
       const instNombre = a.compound_key ? a.compound_key.split('::')[0] : a.institucion;
+      const planKey = a.compound_key && a.compound_key.includes('::') ? a.compound_key.split('::')[1] : 'base';
+      const planLabel = (planKey && planKey !== 'base') ? planKey.charAt(0).toUpperCase() + planKey.slice(1) : '';
+
       const affiliateUrl = AFFILIATE[instNombre];
       const actionLine = affiliateUrl
         ? `<a href="${escapeAttr(affiliateUrl)}"
@@ -600,20 +722,20 @@
               rel="noopener sponsored"
               data-inst="${escapeAttr(instNombre)}"
               class="plan-card-action-link">
-             Abrir cuenta en ${escapeHtml(a.institucion)} →
+             Abrir cuenta en ${escapeHtml(instNombre)} →
            </a>`
-        : `<p class="plan-card-action-v2">Abre una cuenta y deposita esta cantidad</p>`;
+        : `<p class="plan-card-action-v2">Abre una cuenta en ${escapeHtml(instNombre)} y deposita esta cantidad</p>`;
 
       return `
         <article class="plan-card-v2">
           <header class="plan-card-head-v2">
-            <div>
-              <p class="plan-card-inst-v2">
-                ${escapeHtml(a.institucion)} ${tagFor(a.tipo)}
-              </p>
-              ${actionLine}
+            <p class="plan-card-inst-v2">
+              ${escapeHtml(instNombre)} ${tagFor(a.tipo)}${planLabel ? ` <span class="plan-card-plan-label">› ${escapeHtml(planLabel)}</span>` : ''}
+            </p>
+            <div class="plan-card-amount-v2">
+              <span class="plan-card-verb">deposita</span>
+              <span>${escapeHtml(a.monto_total_label)}</span>
             </div>
-            <div class="plan-card-amount-v2">${escapeHtml(a.monto_total_label)}</div>
           </header>
           <div class="plan-card-body-v2">
             ${multiInstr}
@@ -624,6 +746,7 @@
             <span>Ganarás aprox. <strong>${escapeHtml(a.rendimiento_label)}</strong></span>
           </div>
           ${condBlock}
+          ${actionLine}
         </article>
       `;
     }).join('');

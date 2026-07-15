@@ -5,10 +5,11 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-<link rel="stylesheet" href="/static/style_v2.css?v=6">
+<link rel="stylesheet" href="/static/style_v2.css?v=9">
 {% endblock %}
 
 {% block content %}
+
 <div class="wiz-shell">
 
   <!-- Card wrapper (visual on desktop, transparent on mobile) -->
@@ -94,8 +95,6 @@
           <!-- Quick preset selector — above the list (filter-bar pattern) -->
           <div class="count-section">
             <div class="count-chips" id="count-chips" role="group" aria-label="Presets de selección">
-              <button type="button" class="count-chip" data-count="1">Top 1</button>
-              <button type="button" class="count-chip" data-count="2">Top 2</button>
               <button type="button" class="count-chip" data-count="3">Top 3</button>
               <button type="button" class="count-chip" data-count="5">Top 5</button>
               <button type="button" class="count-chip active" data-count="all" id="chip-all" aria-pressed="true">Todas</button>
@@ -237,5 +236,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="/static/calc_v2.js?v=6" defer></script>
+<script src="/static/calc_v2.js?v=13" defer></script>
 {% endblock %}

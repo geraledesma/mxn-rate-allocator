@@ -1894,3 +1894,57 @@ html { background: var(--bg); }
   .cta:active { transform: scale(.98); }
   .nav-links a:active { background: var(--bg-soft); }
 }
+
+/* ── Rate Ticker ─────────────────────────────────────────────────────────── */
+
+.ticker-band {
+  overflow: hidden;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line);
+  height: 28px;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ticker-scroll 35s linear infinite;
+}
+
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 1.5rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  border-right: 1px solid var(--line);
+}
+
+.ticker-name {
+  color: var(--ink-soft);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.ticker-rate {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.ticker-cond {
+  color: var(--warning);
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track { animation: none; }
+}
