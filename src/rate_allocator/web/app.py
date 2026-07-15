@@ -9,7 +9,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, field_validator
@@ -367,20 +367,6 @@ def _page_context(request: Request, extra: dict | None = None) -> dict:
 async def index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
-        "index.html",
-        _page_context(request, {
-            "monto_min": TOTAL_MIN,
-            "monto_max": FREE_TOTAL_MAX,
-            "monto_default": 100_000,
-        }),
-    )
-
-
-@app.get("/v2", response_class=HTMLResponse)
-async def index_v2(request: Request) -> HTMLResponse:
-    """Wizard beta — mobile-first step-by-step flow. Does not replace /."""
-    return templates.TemplateResponse(
-        request,
         "index_v2.html",
         _page_context(request, {
             "monto_min": TOTAL_MIN,
@@ -388,6 +374,11 @@ async def index_v2(request: Request) -> HTMLResponse:
             "monto_default": 100_000,
         }),
     )
+
+
+@app.get("/v2", response_class=RedirectResponse)
+async def index_v2() -> RedirectResponse:
+    return RedirectResponse(url="/", status_code=301)
 
 
 @app.get("/compare-v2", response_class=HTMLResponse)

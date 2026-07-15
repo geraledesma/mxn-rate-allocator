@@ -180,16 +180,6 @@
         btn.setAttribute('aria-expanded', open ? 'true' : 'false');
       });
     })();
-    (function () {
-      const p = location.pathname;
-      if (p === '/v2' || p.startsWith('/v2/') || p === '/compare-v2') sessionStorage.setItem('mx-calc-home', '/v2');
-      else if (p === '/') sessionStorage.removeItem('mx-calc-home');
-      const home = sessionStorage.getItem('mx-calc-home') || '/';
-      ['nav-home', 'nav-calc'].forEach(function (id) {
-        const el = document.getElementById(id);
-        if (el) el.href = home;
-      });
-    })();
   </script>
   {% block extra_scripts %}{% endblock %}
 </body>
