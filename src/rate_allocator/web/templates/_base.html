@@ -185,25 +185,21 @@
       if (!track || !track.animate) return;
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       function startTicker() {
-        requestAnimationFrame(function () {
-          requestAnimationFrame(function () {
-            const half = track.scrollWidth / 2;
-            if (half <= 0) return;
-            track.style.animation = 'none';
-            const anim = track.animate(
-              [{ transform: 'translate3d(0,0,0)' }, { transform: 'translate3d(-' + half + 'px,0,0)' }],
-              { duration: 35000, iterations: Infinity, easing: 'linear' }
-            );
-            const band = track.closest('.ticker-band');
-            if (band) {
-              band.addEventListener('mouseenter', function () { anim.pause(); });
-              band.addEventListener('mouseleave', function () { anim.play(); });
-            }
-          });
-        });
+        var half = track.offsetWidth / 2;
+        if (half <= 0) return;
+        track.style.animation = 'none';
+        var anim = track.animate(
+          [{ transform: 'translate3d(0,0,0)' }, { transform: 'translate3d(-' + half + 'px,0,0)' }],
+          { duration: 35000, iterations: Infinity, easing: 'linear' }
+        );
+        var band = track.closest('.ticker-band');
+        if (band) {
+          band.addEventListener('mouseenter', function () { anim.pause(); });
+          band.addEventListener('mouseleave', function () { anim.play(); });
+        }
       }
-      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startTicker);
-      else startTicker();
+      var ready = document.fonts ? document.fonts.ready : Promise.resolve();
+      ready.then(function () { requestAnimationFrame(function () { requestAnimationFrame(startTicker); }); });
     })();
   </script>
   {% block extra_scripts %}{% endblock %}

@@ -1906,10 +1906,9 @@ html { background: var(--bg); }
 }
 
 .ticker-track {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   height: 28px;
-  width: max-content;
   animation: ticker-scroll 35s linear infinite;
   will-change: transform;
 }
