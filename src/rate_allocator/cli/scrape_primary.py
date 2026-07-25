@@ -275,18 +275,29 @@ def _extract_uala(text: str) -> dict:
 
 
 def _extract_finsus(text: str) -> dict:
-    # FAQ page — first plausible % rate is the vista rate
-    # ⚠️ Pendiente confirmar si es vista o plazo 7 días
-    # Iterate all matches; return first in plausible range to skip navigation numbers.
-    for m in re.finditer(r"(\d+(?:[.,]\d+)?)\s*%", text):
-        rate = _pct(float(m.group(1).replace(",", ".")))
-        if 0.01 <= rate <= 0.25:
-            return {
-                "name": "Finsus",
-                "institution_type": "sofipo",
-                "tiers": [{"limit": "inf", "rate": rate}],
-            }
-    raise ValueError("no plausible rate (1–25%) found")
+    # finsus.mx/personas/cuenta — heading: "Finsus+ con 7.01%* de rendimiento anual"
+    # Disclaimer: "Tasa de rendimiento fija anual 7.01% ... a la vista"
+    # Confirmed overnight (a la vista), no upper limit, min $0.01 MXN (2026-07-24)
+    #
+    # Rule: if page no longer shows a vista product, raise so the institution
+    # is skipped and flagged for manual review rather than ingesting a wrong rate.
+    # "Tu dinero disponible 24/7" is the static-HTML signal that this is a vista product.
+    # "a la vista" only appears in a JS-rendered accordion — not fetchable via requests.
+    if not re.search(r"disponible\s+24/7", text, re.IGNORECASE):
+        raise ValueError("'disponible 24/7' not found — vista product may have changed; skip")
+    m = re.search(r"(\d+\.\d+)%\*?\s+de\s+rendimiento\s+anual", text, re.IGNORECASE)
+    if not m:
+        m = re.search(r"rendimiento\s+fija\s+anual\s+(\d+\.\d+)%", text, re.IGNORECASE)
+    if not m:
+        raise ValueError("rate pattern not found on /personas/cuenta")
+    rate = _pct(float(m.group(1)))
+    if not (0.01 <= rate <= 0.25):
+        raise ValueError(f"implausible rate: {rate:.2%}")
+    return {
+        "name": "Finsus",
+        "institution_type": "sofipo",
+        "tiers": [{"limit": "inf", "rate": rate}],
+    }
 
 
 def _extract_revolut(text: str) -> dict:
@@ -427,8 +438,7 @@ PRIMARY_SOURCES: list[dict] = [
     {
         "name": "Finsus",
         "strategy": "html",
-        # ⚠️ Pendiente confirmar si tasa es a la vista o plazo 7 días
-        "url": "https://finsus.mx/faqs-items/cuales-son-las-tasas-que-manejan-en-cuenta-de-ahorro-y-en-inversion/",
+        "url": "https://finsus.mx/personas/cuenta",
         "extractor": _extract_finsus,
     },
     {
