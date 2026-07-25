@@ -86,15 +86,16 @@ TIER_STRUCTURES: dict[str, dict] = {
             {"limit": "inf", "rate": 0.06},
         ],
     },
-    # source: https://www.openbank.mx/cuenta-debito-open-plus
-    # Product: Cuenta Débito Open+ — a la vista, Santander/IPAB. Rates from T&C Mar 2026.
-    # First $40k: vista rate from tasas.mx. $40k-$1M and $1M+ hardcoded from T&C.
+    # source: email institucional Openbank México — "Actualizamos nuestras tasas", 2026-07-27
+    # Product: Apartados Open (Cuenta Débito Open+) — a la vista, Santander/IPAB.
+    # $0–$30k: vista rate from tasas.mx (was $40k until 2026-07-26).
+    # $30k–$1M: 7.0% fijo | $1M+: 6.5% fijo — hardcoded from email T&C 2026-07-27.
     "Openbank": {
         "institution_type": "banco",
         "tiers": [
-            {"limit": 40_000,    "rate_key": "vista"},
-            {"limit": 1_000_000, "rate": 0.073},
-            {"limit": "inf",     "rate": 0.07},
+            {"limit": 30_000,    "rate_key": "vista"},
+            {"limit": 1_000_000, "rate": 0.07},
+            {"limit": "inf",     "rate": 0.065},
         ],
     },
     # Klar removed from auto-scrape — tasas.mx shows only the Plus/Platino rate (8.5%),

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from rate_allocator.adapters.regulatory_loader import load_regulatory_rules_from_yaml
@@ -78,6 +79,17 @@ def _build_parser() -> argparse.ArgumentParser:
             "For tracked deployments, prefer running Alembic migrations."
         ),
     )
+    parser.add_argument(
+        "--as-of",
+        type=datetime.fromisoformat,
+        default=None,
+        metavar="DATETIME",
+        help=(
+            "Override the SCD2 effective timestamp (ISO 8601, e.g. 2026-08-06T00:00:00). "
+            "Use for proforma entries: the change is recorded with this future date and "
+            "will not appear in the app until that date is reached."
+        ),
+    )
     return parser
 
 
@@ -101,6 +113,9 @@ def main(argv: list[str] | None = None) -> int:
                 session, rules, source=source, actor=args.actor, note=args.note
             )
         else:
+            as_of = args.as_of
+            if as_of is not None and as_of.tzinfo is None:
+                as_of = as_of.replace(tzinfo=timezone.utc)
             institutions = load_institutions_from_yaml(yaml_path)
             stats = ingest_institutions(
                 session,
@@ -109,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:
                 actor=args.actor,
                 note=args.note,
                 deactivate_missing=args.deactivate_missing,
+                now=as_of,
             )
 
     print(f"db_url: {db_url}")

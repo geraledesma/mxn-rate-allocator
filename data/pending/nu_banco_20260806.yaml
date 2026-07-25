@@ -1,0 +1,40 @@
+# Proforma — Nu México: SOFIPO → Institución de Banca Múltiple
+#
+# Fuente: comunicado oficial Nu México + autorización CNBV 2026-07-10
+# Vigencia: 2026-08-06 (mantenimiento técnico noche del 2026-08-05)
+#
+# Cambios vs estado anterior:
+#   institution_type: sofipo → banco
+#   protection_limit: ~200,000 MXN (Prosofipo 25k UDIs) → ~3,000,000 MXN (IPAB 400k UDIs)
+#
+# Tasas: SIN CAMBIO confirmado hasta al menos 2026-08-19 (Cajita Turbo 13% / Cajita 6.75%)
+#
+# Cómo aplicar:
+#   PYTHONPATH=src python -m rate_allocator.cli.ingest \
+#     data/pending/nu_banco_20260806.yaml \
+#     --as-of 2026-08-06T00:00:00 \
+#     --note "Nu IBM — autorización CNBV 2026-07-10, vigencia 2026-08-06"
+#
+# NO ejecutar sin --as-of o el cambio se activará inmediatamente.
+
+institutions:
+
+  # ── NU ───────────────────────────────────────────────────────────────────────
+  # Fuente T&C: https://nubank.com.br/MX/folleto-informativo-cuenta.pdf
+  # Nombre legal nuevo: "Nubank, S.A., Institución de Banca Múltiple"
+  # Cobertura nueva: IPAB hasta 400,000 UDIs ≈ $3,000,000 MXN
+  # Cajita Turbo: 13% anual hasta $25k (requiere ≥1 compra/30 días con tarjeta Nu).
+  # Cajita base: 6.75% sin condición sobre $25k.
+  - name: Nu
+    institution_type: banco
+    tiers:
+      - limit: 25_000
+        rate: 0.13
+        constraints:
+          - type: monthly_expense
+            cost: 1.0
+            benefit: high_rate_tier
+            condition_value: 1.0
+            active: true
+      - limit: .inf
+        rate: 0.0675

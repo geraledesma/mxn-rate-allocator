@@ -80,7 +80,7 @@ def _try_load_db_snapshot() -> tuple[list[Institution], RegulatoryRules | None, 
     try:
         engine = create_db_engine(_resolve_database_url())
         with session_scope(engine) as session:
-            institutions = load_institutions_from_db(session)
+            institutions = load_institutions_from_db(session, as_of=datetime.now(timezone.utc))
             rules = load_regulatory_rules_from_db(session, country="MX")
             return institutions, rules, datetime.now(timezone.utc)
     except Exception:
