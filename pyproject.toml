@@ -18,10 +18,11 @@ dependencies = [
 ]
 
 [project.scripts]
-rate-scrape = "rate_allocator.cli.scrape:main"
-rate-ingest = "rate_allocator.cli.ingest:main"
-rate-seed   = "rate_allocator.cli.seed:main"
-rate-web    = "rate_allocator.web.app:run"
+rate-scrape         = "rate_allocator.cli.scrape:main"
+rate-scrape-primary = "rate_allocator.cli.scrape_primary:main"
+rate-ingest         = "rate_allocator.cli.ingest:main"
+rate-seed           = "rate_allocator.cli.seed:main"
+rate-web            = "rate_allocator.web.app:run"
 
 [project.optional-dependencies]
 dev = [
@@ -41,6 +42,11 @@ streamlit = [
     "streamlit>=1.28.0",
     "matplotlib>=3.7.0",
     "pandas>=2.0.0",
+]
+scraper = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "pdfplumber>=0.11",
 ]
 postgres = [
     "psycopg[binary]>=3.1",

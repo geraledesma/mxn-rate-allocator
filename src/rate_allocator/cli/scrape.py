@@ -102,7 +102,7 @@ TIER_STRUCTURES: dict[str, dict] = {
     # which can't be decomposed into plan-level rates (Light 3%, Plus 5%) from this source.
     # Klar is manually curated in data/manual_additions.yaml with plan separation.
     # Update when scraper2 (deceroalinfinito.com) is built.
-    # source: https://crediclub.com.mx (supertasas.com redirects here)
+    # source: https://crediclub.com/inversiones (crediclub.com.mx DNS muerto)
     # Product: Cuenta de Ahorro a la Vista — Crediclub SFP. Only "vista" rate is in scope.
     # NOTA: Crediclub también ofrece plazos (7-364 días) con tasas más altas — EXCLUIDOS.
     "Supertasas": {
