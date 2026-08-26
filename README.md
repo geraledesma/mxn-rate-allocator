@@ -1,5 +1,7 @@
 # MXN Rate Allocator
 
+> Part of the [Merqurio](https://merqurio.com.mx) suite — accessible financial tools for Mexico and LatAm.
+
 Optimal capital distribution across Mexican banks and SOFIPOs to maximize real yield — net of taxes and inflation, with guaranteed IPAB/Prosofipo coverage.
 
 > Source available under [BUSL-1.1](LICENSE). Free for personal, non-commercial use.
